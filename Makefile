@@ -12,11 +12,12 @@ CPPFLAGS = $(INC_FLAGS) -MMD -MP
 
 PLATFORM ?= Linux
 ifeq ($(PLATFORM), Linux)
-	TARGET = test
+	TARGET = main
 	CC = gcc
-	CFLAGS = -Wall -Werror -I../build
-	LDFLAGS = -L../build -lengine -Wl,-rpath=../build
+	CFLAGS = -fpic -Wall
+	LDFLAGS = -lvulkan -lxkbcommon
 	CPPFLAGS += -DLinux
+	PLATFORMFLAGS += -lwayland-client
 else
 noname:
 	@echo "Platform '$(PLATFORM)' not supported, exiting"
@@ -31,15 +32,22 @@ else
 endif
 
 $(BUILD_DIR)/$(TARGET): $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o $@
+	$(CC) $(OBJS) $(LDFLAGS) $(PLATFORMFLAGS) -o $@
 
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
+shaders:
+	glslc ./src/assets/shaders/shader.vert -o ./src/assets/shaders/vert.spv -g
+	glslc ./src/assets/shaders/shader.frag -o ./src/assets/shaders/frag.spv -g
+
+run:
+	$(BUILD_DIR)/main
+
 clean:
 	rm -r $(BUILD_DIR)
 
-.PHONY: clean
+.PHONY: clean noname
 
 -include $(DEPS)

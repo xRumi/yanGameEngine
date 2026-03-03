@@ -1,3 +1,6 @@
 .vscode/
 build/
-test/build/
+compile_commands.json
+.cache
+*.code-workspace
+*.directory
