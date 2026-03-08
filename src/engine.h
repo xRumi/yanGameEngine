@@ -1,9 +1,9 @@
 #pragma once
 #include "defines.h"
-#include "renderer.h"
 #include "renderer_vulkan.h"
 #include "platform.h"
 #include <time.h>
+#include "asset_manager.h"
 
 typedef struct EngineState {
 } EngineState;

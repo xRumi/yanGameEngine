@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <pthread.h>
 
 PlatformState platformState;
 int platformWindowClosed = 0;
@@ -69,17 +70,17 @@ const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 
-void xdg_toplevel_configure(void * data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height, struct wl_array* states) {
+void xdg_toplevel_configure(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height, struct wl_array* states) {
 
 }
 void xdg_toplevel_close(void* data, struct xdg_toplevel* xdg_toplevel) {
     platformWindowClosed = 1;
     TRACE("Window closed");
 }
-void xdg_toplevel_configure_bounds(void*, struct xdg_toplevel*, int32_t, int32_t) {
+void xdg_toplevel_configure_bounds(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height) {
 
 }
-void xdg_toplevel_wm_capabilities(void*, struct xdg_toplevel*, struct wl_array*) {
+void xdg_toplevel_wm_capabilities(void* data, struct xdg_toplevel* xdg_toplevel, struct wl_array* states) {
 
 }
 const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -217,17 +218,24 @@ void platformShutdown() {
 };
 
 void platformConsoleWrite(const char* message, uint8_t color);
-double platform_getTime() {
+double platformGetTime() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec + ts.tv_nsec * 1e-9;
 }
-void platform_sleep(double time) {
+void platformSleep(double time) {
     struct timespec ts;
     ts.tv_sec = (time_t)time;
     ts.tv_nsec = (time - ts.tv_sec) * 1e9;
     nanosleep(&ts, NULL);
 }
 
+uint64_t platformThreadCreate(void*(*fun)(void*), void* arg) {
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, fun, arg) != 0) {
+        FATAL("Failed to create thread");
+    };
+    return thread;
+}
 
 #endif

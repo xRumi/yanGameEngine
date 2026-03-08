@@ -1,9 +1,7 @@
 #include "main.h"
-#include "test_containers.h"
+#include "emath.h"
 
 int main() {
-    test_containers();
-
     engineInitialization();
     engineRun();
     engineShutdown();

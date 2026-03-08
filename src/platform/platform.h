@@ -15,5 +15,7 @@ void platformShutdown();
 PlatformState* platformGetPlatformState();
 
 void platformConsoleWrite(const char* message, uint8_t color);
-double platform_getTime();
-void platform_sleep(double time);
+double platformGetTime();
+void platformSleep(double time);
+
+uint64_t platformThreadCreate(void*(*fun)(void*), void* arg);

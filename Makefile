@@ -1,11 +1,12 @@
 SRC_DIR = ./src
 BUILD_DIR = ./build
+LIB_DIR = ./lib
 
 SRCS = $(shell find $(SRC_DIR) -name '*.c')
 OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS = $(OBJS:%.o=%.d)
 
-INC_DIRS = $(shell find $(SRC_DIR) -type d)
+INC_DIRS = $(shell find $(SRC_DIR) -type d) $(LIB_DIR)
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 CPPFLAGS = $(INC_FLAGS) -MMD -MP
@@ -15,7 +16,7 @@ ifeq ($(PLATFORM), Linux)
 	TARGET = main
 	CC = gcc
 	CFLAGS = -fpic -Wall
-	LDFLAGS = -lvulkan -lxkbcommon
+	LDFLAGS = -lvulkan -lxkbcommon -lm
 	CPPFLAGS += -DLinux
 	PLATFORMFLAGS += -lwayland-client
 else
@@ -42,7 +43,7 @@ shaders:
 	glslc ./src/assets/shaders/shader.vert -o ./src/assets/shaders/vert.spv -g
 	glslc ./src/assets/shaders/shader.frag -o ./src/assets/shaders/frag.spv -g
 
-run:
+run: $(BUILD_DIR)/$(TARGET) shaders
 	$(BUILD_DIR)/main
 
 clean:

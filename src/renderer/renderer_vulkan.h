@@ -4,18 +4,21 @@
 #include "darray.h"
 #include "emath.h"
 #include "platform.h"
-#include <threads.h>
+
+#include "files.h"
 
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #include <vulkan/vulkan.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2
 
-typedef struct Vertex {
-    vec3 position;
-    vec3 color;
-    vec2 texCoord;
-} Vertex;
+void rendererInitialize();
+
+typedef struct UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+} UniformBufferObject;
 
 // Used signed integers as family indices can be 0
 typedef struct QueueFamilyIndices {
@@ -32,6 +35,8 @@ typedef struct SwapchainSupportDetails {
 } SwapchainSupportDetails;
 
 typedef struct VkState {
+
+    double startTime;
 
     Vertex* vertices;
     uint32_t* indices;
@@ -69,6 +74,11 @@ typedef struct VkState {
     uint32_t currentFrame;
     bool framebufferResized;
 
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
+
     VkImage colorImage;
     VkImageView colorImageView;
     VkDeviceMemory colorImageMemory;
@@ -82,6 +92,8 @@ typedef struct VkState {
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
-} VkState;
+    VkBuffer* uniformBuffers;
+    VkDeviceMemory* uniformBuffersMemory;
+    void** uniformBuffersMapped;
 
-int vulkanRendererThreadEnter(void*);
+} VkState;

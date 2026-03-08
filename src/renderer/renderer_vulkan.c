@@ -3,10 +3,9 @@
 VkState* internalStateVulkan;
 const char* instanceLayers[] = {"VK_LAYER_KHRONOS_validation"};
 const char* instanceExtensions[] = {VK_KHR_DISPLAY_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME};
-const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE1_EXTENSION_NAME};
 
 extern int platformWindowClosed;
-double deltaTime;
 
 void createInstance() {
     VkApplicationInfo appInfo = {};
@@ -30,7 +29,6 @@ void createInstance() {
     if (vkCreateInstance(&createInfo, NULL, &internalStateVulkan->instance) != VK_SUCCESS) {
         FATAL("Failed to create vk instance");
     }
-    TRACE("Vulkan Instance created");
     
     // // Output vulkan instance extensions to TRACE log
     // uint32_t extCount = 0;
@@ -99,6 +97,21 @@ SwapchainSupportDetails findSwapchainSupportDetails(VkPhysicalDevice device) {
     if (formatCount > 0 && presentModeCount > 0) details.isComplete = true;
 
     return details;
+}
+
+VkSampleCountFlagBits getMaxUsableSampleCount() {
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(internalStateVulkan->physicalDevice, &physicalDeviceProperties);
+
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
 }
 
 void pickPhysicalDevice() {
@@ -171,7 +184,7 @@ void pickPhysicalDevice() {
         internalStateVulkan->physicalDevice = pickedDevice;
         internalStateVulkan->queueFamilyIndices = pickedQueueFamily;
         internalStateVulkan->swapchainSupportDetails = pickedSwapchainDetails;
-        internalStateVulkan->msaaSamples = VK_SAMPLE_COUNT_1_BIT; // TODO: Take prefered msaa samples
+        internalStateVulkan->msaaSamples = getMaxUsableSampleCount();
     } else {
         FATAL("Failed to select Physical Device");
     }
@@ -215,9 +228,9 @@ void createLogicalDevice() {
     if (vkCreateDevice(internalStateVulkan->physicalDevice, &createInfo, NULL, &internalStateVulkan->device) != VK_SUCCESS) {
         FATAL("Failed to create vulkan device");
     }
+    darray_destroy(queueCreateInfos);
     vkGetDeviceQueue(internalStateVulkan->device, internalStateVulkan->queueFamilyIndices.graphicsFamily, 0, &internalStateVulkan->graphicsQueue);
     vkGetDeviceQueue(internalStateVulkan->device, internalStateVulkan->queueFamilyIndices.presentFamily, 0, &internalStateVulkan->presentQueue);
-    TRACE("Logical device created");
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -303,14 +316,15 @@ void createSwapchain() {
             break;
         }
     }
-    // TODO: properly find extent
+
     VkExtent2D extent = internalStateVulkan->swapchainSupportDetails.capabilities.currentExtent;
     extent.height = internalStateVulkan->height;
     extent.width = internalStateVulkan->width;
 
     uint32_t imageCount = internalStateVulkan->swapchainSupportDetails.capabilities.minImageCount + 1;
-    if (internalStateVulkan->swapchainSupportDetails.capabilities.maxImageCount != 0 && imageCount > internalStateVulkan->swapchainSupportDetails.capabilities.maxImageCount)
+    if (internalStateVulkan->swapchainSupportDetails.capabilities.maxImageCount != 0 && imageCount > internalStateVulkan->swapchainSupportDetails.capabilities.maxImageCount) {
         imageCount = internalStateVulkan->swapchainSupportDetails.capabilities.maxImageCount;
+    }
 
     VkSwapchainCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -327,10 +341,16 @@ void createSwapchain() {
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    // TODO: assuming graphics and present queue are the same; change that
-    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    createInfo.queueFamilyIndexCount = 0;
-    createInfo.pQueueFamilyIndices = NULL;
+    if (internalStateVulkan->queueFamilyIndices.graphicsFamily == internalStateVulkan->queueFamilyIndices.presentFamily) {
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 0;
+        createInfo.pQueueFamilyIndices = NULL;
+    } else {
+        uint32_t indices[] = {internalStateVulkan->queueFamilyIndices.graphicsFamily, internalStateVulkan->queueFamilyIndices.presentFamily};
+        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        createInfo.queueFamilyIndexCount = 2;
+        createInfo.pQueueFamilyIndices = indices;
+    }
 
     if (vkCreateSwapchainKHR(internalStateVulkan->device, &createInfo, NULL, &internalStateVulkan->swapchain) != VK_SUCCESS) {
         FATAL("Failed to create swapchain");
@@ -437,7 +457,6 @@ void createRenderPass() {
     if (vkCreateRenderPass(internalStateVulkan->device, &createInfo, NULL, &internalStateVulkan->renderPass) != VK_SUCCESS) {
         FATAL("Failed to create renderPass");
     }
-    TRACE("Render pass created");
 }
 
 void createDescriptorSetLayout() {
@@ -462,26 +481,7 @@ void createDescriptorSetLayout() {
     if (vkCreateDescriptorSetLayout(internalStateVulkan->device, &createInfo, NULL, &internalStateVulkan->descriptorSetLayout) != VK_SUCCESS) {
         FATAL("Failed to create descriptor set layout");
     }
-    TRACE("Descriptor set layout created");
 }
-
-char* readFile(const char* filename) {
-    FILE* file = fopen(filename, "rb");
-    if (file == NULL) {
-        ERROR("Failed to open file %s", filename);
-        return NULL;
-    }
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    if (size < 0) {
-        FATAL("Failed to ftell file %s", filename);
-    }
-    char* data = darray_create_reserve(char, size);
-    fseek(file, 0, SEEK_SET);
-    fread(data, 1, size, file);
-    fclose(file);
-    return data;
-};
 
 VkShaderModule createShaderModule(const char* shaderCode) {
     VkShaderModule shaderModule = {};
@@ -512,7 +512,7 @@ VkVertexInputAttributeDescription* getAttributeDescriptions() {
 
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Vertex, color);
 
     attributeDescriptions[2].binding = 0;
@@ -560,7 +560,6 @@ void createGraphicsPipline() {
     vertexCreateInfo.vertexAttributeDescriptionCount = darray_get_length(attributeDescriptions);
     vertexCreateInfo.pVertexAttributeDescriptions = attributeDescriptions;
 
-    
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {};
     inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -568,9 +567,9 @@ void createGraphicsPipline() {
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
-    viewport.y = 0.0f;
+    viewport.y = (float)internalStateVulkan->height;
     viewport.width = (float)internalStateVulkan->width;
-    viewport.height = (float)internalStateVulkan->height;
+    viewport.height = -(float)internalStateVulkan->height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
@@ -589,7 +588,7 @@ void createGraphicsPipline() {
     VkPipelineRasterizationStateCreateInfo rasterizationCreateInfo = {};
     rasterizationCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizationCreateInfo.rasterizerDiscardEnable = VK_FALSE;
-    rasterizationCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizationCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
     rasterizationCreateInfo.lineWidth = 1.0f;
     rasterizationCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizationCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
@@ -614,7 +613,7 @@ void createGraphicsPipline() {
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutCreateInfo.setLayoutCount = 0; // no descriptor
+    pipelineLayoutCreateInfo.setLayoutCount = 1;
     pipelineLayoutCreateInfo.pSetLayouts = &internalStateVulkan->descriptorSetLayout;
 
     if (vkCreatePipelineLayout(internalStateVulkan->device, &pipelineLayoutCreateInfo, NULL, &internalStateVulkan->pipelineLayout) != VK_SUCCESS) {
@@ -749,7 +748,6 @@ void transitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevels,Vk
     endSingleTimeCommands(commandBuffer);
 }
 
-
 void createDepthResources() {
     VkFormat depthFormat = internalStateVulkan->depthFormat;
     createImage(internalStateVulkan->swapchainImageExtent.width, internalStateVulkan->swapchainImageExtent.height, depthFormat, 1, internalStateVulkan->msaaSamples, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &internalStateVulkan->depthImage, &internalStateVulkan->depthImageMemory);
@@ -808,30 +806,30 @@ void createFramebuffers() {
 //     createImageView(textureImageView, textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_ASPECT_COLOR_BIT);
 // }
 
-// void createTextureSampler() {
-//     VkPhysicalDeviceProperties properties{};
-//     vkGetPhysicalDeviceProperties(internalStateVulkan->physicalDevice, &properties);
+void createTextureSampler() {
+    VkPhysicalDeviceProperties properties = {};
+    vkGetPhysicalDeviceProperties(internalStateVulkan->physicalDevice, &properties);
 
-//     VkSamplerCreateInfo createInfo = {};
-//     createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-//     createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-//     createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-//     createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-//     createInfo.anisotropyEnable = VK_TRUE;
-//     createInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-//     createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-//     createInfo.compareEnable = VK_FALSE;
-//     createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-//     createInfo.magFilter = VK_FILTER_LINEAR;
-//     createInfo.minFilter = VK_FILTER_LINEAR;
-//     createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-//     createInfo.maxLod = VK_LOD_CLAMP_NONE;
-//     createInfo.unnormalizedCoordinates = VK_FALSE;
+    VkSamplerCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    createInfo.anisotropyEnable = VK_TRUE;
+    createInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    createInfo.compareEnable = VK_FALSE;
+    createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    createInfo.magFilter = VK_FILTER_LINEAR;
+    createInfo.minFilter = VK_FILTER_LINEAR;
+    createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    createInfo.maxLod = VK_LOD_CLAMP_NONE;
+    createInfo.unnormalizedCoordinates = VK_FALSE;
 
-//     if (vkCreateSampler(internalStateVulkan->device, &createInfo, NULL, &textureSampler) != VK_SUCCESS) {
-//         throw std::runtime_error("Failed to create texture sampler");
-//     }
-// }
+    if (vkCreateSampler(internalStateVulkan->device, &createInfo, NULL, &internalStateVulkan->textureSampler) != VK_SUCCESS) {
+        FATAL("Failed to create texture sampler");
+    }
+}
 
 // void loadModel() {
 //     tinyobj::attrib_t attrib;
@@ -865,30 +863,45 @@ void createFramebuffers() {
 //     }
 // }
 
+#include "asset_manager.h"
+
 void loadModel() {
-    internalStateVulkan->vertices = darray_create_reserve(Vertex, 3);
-    internalStateVulkan->indices = darray_create_reserve(uint32_t, 3);
-    Vertex vertices[3] = {
-        {
-            {-0.5, -0.5, 0},
-            {0.2, 0.3, 0.5},
-            {0, 0}
-        },
-        {
-            {0, 0.5, 0},
-            {0.2, 0.3, 0.5},
-            {0, 0}
-        },
-        {
-            {0.5, -0.5, 0},
-            {0.2, 0.3, 0.5},
-            {0, 0}
-        },
-    };
-    uint32_t indices[3] = {0, 1, 2};
-    memcpy(internalStateVulkan->vertices, vertices, sizeof(vertices));
-    memcpy(internalStateVulkan->indices, indices, sizeof(indices));
-    TRACE("Triangle model loaded");
+
+    Model* model = load_model("./assets/world/models/BoxVertexColors/BoxVertexColors.gltf");
+
+    darray_foreach(model->mesh, Mesh, x, {
+        if (x.vertices) {
+            internalStateVulkan->vertices = x.vertices;
+            internalStateVulkan->indices = x.indices;
+            break;
+        }
+    });
+
+    DEBUG("loadded with verties: %d indices: %d", darray_get_length(internalStateVulkan->vertices), darray_get_length(internalStateVulkan->indices));
+
+    // internalStateVulkan->vertices = darray_create_reserve(Vertex, 3);
+    // internalStateVulkan->indices = darray_create_reserve(uint32_t, 3);
+    // Vertex vertices[3] = {
+    //     {
+    //         {{-0.5, -0.5, 0}},
+    //         {{1, 0, 0}},
+    //         {{0, 0}}
+    //     },
+    //     {
+    //         {{0, 0.5, 0}},
+    //         {{0, 1, 0}},
+    //         {{0, 0}}
+    //     },
+    //     {
+    //         {{0.5, -0.5, 0}},
+    //         {{0, 0, 1}},
+    //         {{0, 0}}
+    //     },
+    // };
+    // uint32_t indices[3] = {0, 2, 1};
+    // memcpy(internalStateVulkan->vertices, vertices, sizeof(vertices));
+    // memcpy(internalStateVulkan->indices, indices, sizeof(indices));
+    // TRACE("Triangle model loaded");
 }
 
 void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* buffer, VkDeviceMemory* bufferMemory) {
@@ -941,7 +954,6 @@ void createVertexBuffer() {
     copyBuffer(stagingBuffer, internalStateVulkan->vertexBuffer, bufferSize);
     vkDestroyBuffer(internalStateVulkan->device, stagingBuffer, NULL);
     vkFreeMemory(internalStateVulkan->device, stagingBufferMemory, NULL);
-    TRACE("Vertex buffer created");
 }
 
 void createIndexBuffer() {
@@ -957,20 +969,20 @@ void createIndexBuffer() {
     copyBuffer(staggingBuffer, internalStateVulkan->indexBuffer, bufferSize);
     vkDestroyBuffer(internalStateVulkan->device, staggingBuffer, NULL);
     vkFreeMemory(internalStateVulkan->device, staggingMemory, NULL);
-    TRACE("Index buffer created");
 }
 
-// void createUniformBuffers() {
-//     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-//     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-//     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-//     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+void createUniformBuffers() {
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-//     for (std::size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-//         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
-//         vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
-//     }
-// }
+    internalStateVulkan->uniformBuffers = darray_create_reserve(UniformBufferObject, MAX_FRAMES_IN_FLIGHT);
+    internalStateVulkan->uniformBuffersMemory = darray_create_reserve(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
+    internalStateVulkan->uniformBuffersMapped = darray_create_reserve(void*, MAX_FRAMES_IN_FLIGHT);
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &internalStateVulkan->uniformBuffers[i], &internalStateVulkan->uniformBuffersMemory[i]);
+        vkMapMemory(internalStateVulkan->device, internalStateVulkan->uniformBuffersMemory[i], 0, bufferSize, 0, &internalStateVulkan->uniformBuffersMapped[i]);
+    }
+}
 
 void createDescriptorPool() {
     VkDescriptorPoolSize poolSizes[2];
@@ -989,49 +1001,50 @@ void createDescriptorPool() {
     }
 }
 
-// void createDescriptorSet() {
-//     VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {internalStateVulkan->descriptorSetLayout, internalStateVulkan->descriptorSetLayout};
-//     internalStateVulkan->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
-//     VkDescriptorSetAllocateInfo allocInfo = {};
-//     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-//     allocInfo.descriptorPool = internalStateVulkan->descriptorPool;
-//     allocInfo.pSetLayouts = layouts;
-//     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-//     if (vkAllocateDescriptorSets(internalStateVulkan->device, &allocInfo, internalStateVulkan->descriptorSets) != VK_SUCCESS) {
-//         FATAL("Failed to allocate descriptor sets");
-//     }
+void createDescriptorSet() {
+    VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {internalStateVulkan->descriptorSetLayout, internalStateVulkan->descriptorSetLayout};
+    internalStateVulkan->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = internalStateVulkan->descriptorPool;
+    allocInfo.pSetLayouts = layouts;
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+    if (vkAllocateDescriptorSets(internalStateVulkan->device, &allocInfo, internalStateVulkan->descriptorSets) != VK_SUCCESS) {
+        FATAL("Failed to allocate descriptor sets");
+    }
 
-//     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-//         VkDescriptorBufferInfo bufferInfo = {};
-//         bufferInfo.buffer = uniformBuffers[i];
-//         bufferInfo.offset = 0;
-//         bufferInfo.range = sizeof(UniformBufferObject);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = internalStateVulkan->uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
 
-//         VkDescriptorImageInfo imageInfo{};
-//         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-//         imageInfo.imageView = textureImageView;
-//         imageInfo.sampler = textureSampler;
+        VkDescriptorImageInfo imageInfo = {};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = internalStateVulkan->textureImageView;
+        imageInfo.sampler = internalStateVulkan->textureSampler;
 
-//         std::vector<VkWriteDescriptorSet> writeDescriptors(2);
-//         writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//         writeDescriptors[0].descriptorCount = 1;
-//         writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//         writeDescriptors[0].dstSet = descriptorSets[i];
-//         writeDescriptors[0].pBufferInfo = &bufferInfo;
-//         writeDescriptors[0].dstBinding = 0;
-//         writeDescriptors[0].dstArrayElement = 0;
+        VkWriteDescriptorSet writeDescriptors[2] = {};
+        writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptors[0].descriptorCount = 1;
+        writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptors[0].dstSet = internalStateVulkan->descriptorSets[i];
+        writeDescriptors[0].pBufferInfo = &bufferInfo;
+        writeDescriptors[0].dstBinding = 0;
+        writeDescriptors[0].dstArrayElement = 0;
 
-//         writeDescriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//         writeDescriptors[1].descriptorCount = 1;
-//         writeDescriptors[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-//         writeDescriptors[1].dstSet = descriptorSets[i];
-//         writeDescriptors[1].pImageInfo = &imageInfo;
-//         writeDescriptors[1].dstBinding = 1;
-//         writeDescriptors[1].dstArrayElement = 0;
+        writeDescriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptors[1].descriptorCount = 1;
+        writeDescriptors[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writeDescriptors[1].dstSet = internalStateVulkan->descriptorSets[i];
+        writeDescriptors[1].pImageInfo = &imageInfo;
+        writeDescriptors[1].dstBinding = 1;
+        writeDescriptors[1].dstArrayElement = 0;
 
-//         vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptors.size()), writeDescriptors.data(), 0, nullptr);
-//     }
-// }
+        // TODO: add image smpler
+        vkUpdateDescriptorSets(internalStateVulkan->device, 1, writeDescriptors, 0, NULL);
+    }
+}
 
 void createCommandBuffer() {
     internalStateVulkan->commandBuffers = darray_create_reserve(VkCommandBuffer, MAX_FRAMES_IN_FLIGHT);
@@ -1049,7 +1062,6 @@ void createSyncObjects() {
     internalStateVulkan->imageAvailableSemaphores = darray_create_reserve(VkSemaphore, MAX_FRAMES_IN_FLIGHT);
     internalStateVulkan->renderFinishedSemaphores = darray_create_reserve(VkSemaphore, darray_get_length(internalStateVulkan->swapchainImageViews));
     internalStateVulkan->inFlightFences = darray_create_reserve(VkFence, MAX_FRAMES_IN_FLIGHT);
-
 
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1077,6 +1089,7 @@ void vulkanInitialization() {
     memset(internalStateVulkan, 0, sizeof(VkState));
     internalStateVulkan->width = platformGetPlatformState()->width;
     internalStateVulkan->height = platformGetPlatformState()->height;
+    internalStateVulkan->startTime = platformGetTime();
 
     createInstance();
     createSurface();
@@ -1095,9 +1108,9 @@ void vulkanInitialization() {
     loadModel();
     createVertexBuffer();
     createIndexBuffer();
-    // createUniformBuffers();
+    createUniformBuffers();
     createDescriptorPool();
-    // createDescriptorSet();
+    createDescriptorSet();
     createCommandBuffer();
     createSyncObjects();
 }
@@ -1126,9 +1139,9 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = internalStateVulkan->swapchainImageExtent.width;
-    viewport.height = internalStateVulkan->swapchainImageExtent.height;
+    viewport.y = (float)internalStateVulkan->height;
+    viewport.width = (float)internalStateVulkan->width;
+    viewport.height = -(float)internalStateVulkan->height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -1141,7 +1154,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &internalStateVulkan->vertexBuffer, offsets);
     vkCmdBindIndexBuffer(commandBuffer, internalStateVulkan->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, internalStateVulkan->pipelineLayout, 0, 1, &internalStateVulkan->descriptorSets[internalStateVulkan->currentFrame], 0, NULL);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, internalStateVulkan->pipelineLayout, 0, 1, &internalStateVulkan->descriptorSets[internalStateVulkan->currentFrame], 0, NULL);
     
     vkCmdDrawIndexed(commandBuffer, darray_get_length(internalStateVulkan->indices), 1, 0, 0, 0);
 
@@ -1152,20 +1165,31 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     }
 }
 
-// void updateUniformBuffers() {
-//     static std::chrono::time_point startTime = std::chrono::high_resolution_clock::now();
-//     std::chrono::time_point currentTime = std::chrono::high_resolution_clock::now();
-//     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-//     UniformBufferObject ubo{};
-//     ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f) * time * 0, glm::vec3(0.0f, 0.0f, 1.0f));
-//     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-//     ubo.projection = glm::perspective(glm::radians(45.0f), swapchainImageExtent.width / (float) swapchainImageExtent.height, 0.1f, 10.0f);
-//     ubo.projection[1][1] *= -1;
+void updateUniformBuffers(double deltaTime) {
+    // static std::chrono::time_point startTime = std::chrono::high_resolution_clock::now();
+    // std::chrono::time_point currentTime = std::chrono::high_resolution_clock::now();
+    // float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    // UniformBufferObject ubo{};
+    // ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f) * time * 0, glm::vec3(0.0f, 0.0f, 1.0f));
+    // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    // ubo.projection = glm::perspective(glm::radians(45.0f), swapchainImageExtent.width / (float) swapchainImageExtent.height, 0.1f, 10.0f);
+    // ubo.projection[1][1] *= -1;
 
-//     memcpy(uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
-// }
+    double elapsedTime = platformGetTime() - internalStateVulkan->startTime;
 
-void drawFrame() {
+    UniformBufferObject ubo = {};
+
+    // ubo.model = mat4_rotation_x(elapsedTime * 3.1416 / 180 * 45);
+    // ubo.model = mat4_identity();
+    // ubo.model = mat4_scale(elapsedTime, elapsedTime, elapsedTime);
+
+    ubo.model = mat4_mul(mat4_rotation_x(45 * 3.1416 / 180 * elapsedTime), mat4_rotation_y(45 * 3.1416 / 180 * elapsedTime));
+    // ubo.model = mat4_translation(0, 0, 0.2 * elapsedTime);
+
+    memcpy(internalStateVulkan->uniformBuffersMapped[internalStateVulkan->currentFrame], &ubo, sizeof(ubo));
+}
+
+void drawFrame(double deltaTime) {
     vkWaitForFences(internalStateVulkan->device, 1, &internalStateVulkan->inFlightFences[internalStateVulkan->currentFrame], VK_TRUE, UINT32_MAX);
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(internalStateVulkan->device, internalStateVulkan->swapchain, UINT32_MAX, internalStateVulkan->imageAvailableSemaphores[internalStateVulkan->currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -1190,7 +1214,7 @@ void drawFrame() {
     submitInfo.pSignalSemaphores = &internalStateVulkan->renderFinishedSemaphores[imageIndex];
     submitInfo.pWaitDstStageMask = waitStage;
 
-    // updateUniformBuffers();
+    updateUniformBuffers(deltaTime);
     
     if (vkQueueSubmit(internalStateVulkan->graphicsQueue, 1, &submitInfo, internalStateVulkan->inFlightFences[internalStateVulkan->currentFrame]) != VK_SUCCESS) {
         FATAL("Failed to submit draw command to queue");
@@ -1218,21 +1242,22 @@ void drawFrame() {
 }
 
 void mainLoop() {
-    double fpsCap = 10000;
-    double targetFrameTime = 1 / fpsCap; 
+    double fpsCap = 144;
+    double targetFrameTime = 1 / fpsCap;
+    double deltaTime = 0;
 
-    double currentTime, lastTime = platform_getTime();
+    double currentTime, lastTime = platformGetTime();
     while (!platformWindowClosed) {
-        currentTime = platform_getTime();
+        currentTime = platformGetTime();
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
-        drawFrame();
+        drawFrame(deltaTime);
     
-        double frameTime = platform_getTime() - currentTime;
+        double frameTime = platformGetTime() - currentTime;
         if (frameTime < targetFrameTime) {
             double sleepTime = targetFrameTime - frameTime;
-            platform_sleep(sleepTime);
+            platformSleep(sleepTime);
         }
     }
 }
@@ -1240,14 +1265,27 @@ void mainLoop() {
 void vulkanCleanUp() {
     vkDeviceWaitIdle(internalStateVulkan->device);
 
+    darray_destroy(internalStateVulkan->vertices);
+    darray_destroy(internalStateVulkan->indices);
+
     for (int i = 0; i < darray_get_length(internalStateVulkan->swapchainImages); i++) {
         vkDestroySemaphore(internalStateVulkan->device, internalStateVulkan->renderFinishedSemaphores[i], NULL);
     }
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroyBuffer(internalStateVulkan->device, internalStateVulkan->uniformBuffers[i], NULL);
+        vkUnmapMemory(internalStateVulkan->device, internalStateVulkan->uniformBuffersMemory[i]);
+        vkFreeMemory(internalStateVulkan->device, internalStateVulkan->uniformBuffersMemory[i], NULL);
+
         vkDestroySemaphore(internalStateVulkan->device, internalStateVulkan->imageAvailableSemaphores[i], NULL);
         vkDestroyFence(internalStateVulkan->device, internalStateVulkan->inFlightFences[i], NULL);
     }
+    darray_destroy(internalStateVulkan->uniformBuffers);
+    darray_destroy(internalStateVulkan->uniformBuffersMemory);
+    darray_destroy(internalStateVulkan->uniformBuffersMapped);
+    darray_destroy(internalStateVulkan->imageAvailableSemaphores);
+    darray_destroy(internalStateVulkan->inFlightFences);
+    darray_destroy(internalStateVulkan->renderFinishedSemaphores);
 
     vkDestroyBuffer(internalStateVulkan->device, internalStateVulkan->vertexBuffer, NULL);
     vkFreeMemory(internalStateVulkan->device, internalStateVulkan->vertexBufferMemory, NULL);
@@ -1262,8 +1300,10 @@ void vulkanCleanUp() {
     vkFreeMemory(internalStateVulkan->device, internalStateVulkan->depthImageMemory, NULL);
 
     vkDestroyCommandPool(internalStateVulkan->device, internalStateVulkan->commandPool, NULL);
+    darray_destroy(internalStateVulkan->commandBuffers);
 
     vkDestroyDescriptorPool(internalStateVulkan->device, internalStateVulkan->descriptorPool, NULL);
+    darray_destroy(internalStateVulkan->descriptorSets);
 
     vkDestroyPipeline(internalStateVulkan->device, internalStateVulkan->pipeline, NULL);
     vkDestroyPipelineLayout(internalStateVulkan->device, internalStateVulkan->pipelineLayout, NULL);
@@ -1286,9 +1326,14 @@ void vulkanCleanUp() {
     memfree(internalStateVulkan, sizeof(VkState), MEMORY_TAG_RENDERER);
 }
 
-int vulkanRendererThreadEnter(void* arg) {
+void* vulkanRendererThreadEnter(void* arg) {
     vulkanInitialization();
     mainLoop();
     vulkanCleanUp();
     return 0;
+}
+
+void rendererInitialize() {
+    uint64_t thread = platformThreadCreate(vulkanRendererThreadEnter, NULL);
+    (void)thread;
 }
