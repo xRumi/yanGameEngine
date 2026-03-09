@@ -1,14 +1,5 @@
 #include "logger.h"
 
-bool loggerInitialize() {
-    // TODO: create log file
-    return true;
-}
-
-bool loggerDestroy() {
-    return true;
-}
-
 const char* levelStrings[] = {
     ANSI_COLOR_RED ANSI_STYLE_BOLD "[FATAL] ",
     ANSI_COLOR_RED ANSI_STYLE_BOLD "[ERROR] ",

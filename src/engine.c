@@ -15,7 +15,6 @@ void engineInitialization() {
     srand(time(NULL));
     
     engineState = memalloc(sizeof(EngineState), MEMORY_TAG_ENGINE);
-    loggerInitialize();
     assetManagerInitialize();
     platformInitialize("yanGameEngine", 0, 0, 600, 600);
     rendererInitialize();

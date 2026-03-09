@@ -45,9 +45,6 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                 case cgltf_attribute_type_position: {
                     vec3 position = {};
                     memcpy(&position, data + offset + stride * j, sizeof(vec3));
-                    position.ele[0] /= 2;
-                    position.ele[1] /= 2;
-                    position.ele[2] /= 2;
                     vertices[j].position = position;
                     break;
                 }
@@ -55,6 +52,12 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                     vec4 color = { {0, 0, 0, 1} };
                     memcpy(&color, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].color = color;
+                    break;
+                }
+                case cgltf_attribute_type_texcoord: {
+                    vec2 texCoord = { {0, 0} };
+                    memcpy(&texCoord, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
+                    vertices[j].texCoord = texCoord;
                     break;
                 }
                 default: {

@@ -47,8 +47,6 @@ typedef enum logLevel {
     LOG_LEVEL_TEST
 } logLevel;
 
-bool loggerInitialize();
-bool loggerDestroy();
 void logOutput(logLevel level, const char* message, ...);
 
 #define FATAL(message, ...) { logOutput(LOG_LEVEL_FATAL, message, ##__VA_ARGS__); exit(0); }

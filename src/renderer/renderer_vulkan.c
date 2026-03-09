@@ -590,7 +590,7 @@ void createGraphicsPipline() {
     rasterizationCreateInfo.rasterizerDiscardEnable = VK_FALSE;
     rasterizationCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationCreateInfo.lineWidth = 1.0f;
-    rasterizationCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizationCreateInfo.cullMode = VK_CULL_MODE_NONE;
     rasterizationCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizationCreateInfo.depthBiasEnable = VK_FALSE;
     rasterizationCreateInfo.depthClampEnable = VK_FALSE;
@@ -888,20 +888,46 @@ void loadModel() {
     //         {{0, 0}}
     //     },
     //     {
-    //         {{0, 0.5, 0}},
-    //         {{0, 1, 0}},
-    //         {{0, 0}}
-    //     },
-    //     {
     //         {{0.5, -0.5, 0}},
     //         {{0, 0, 1}},
     //         {{0, 0}}
     //     },
+    //     {
+    //         {{0, 0.5, 0}},
+    //         {{0, 1, 0}},
+    //         {{0, 0}}
+    //     },
     // };
-    // uint32_t indices[3] = {0, 2, 1};
+    // uint32_t indices[3] = {0, 1, 2};
     // memcpy(internalStateVulkan->vertices, vertices, sizeof(vertices));
     // memcpy(internalStateVulkan->indices, indices, sizeof(indices));
     // TRACE("Triangle model loaded");
+}
+
+void updateUniformBuffers(double deltaTime) {
+    double elapsedTime = platformGetTime() - internalStateVulkan->startTime;
+    (void)elapsedTime;
+
+    UniformBufferObject ubo = {};
+
+    // ubo.model = mat4_identity();
+    // ubo.model = mat4_rotation_z(elapsedTime * 20);
+    // ubo.model = mat4_scale(elapsedTime, elapsedTime, elapsedTime);
+    ubo.model = mat4_mul(mat4_rotation_x(45 * elapsedTime), mat4_rotation_y(45 * elapsedTime));
+    // ubo.model = mat4_translation(0, elapsedTime * 0.1, 0);
+
+    mat4 proj = mat4_perspective(90, (float)internalStateVulkan->width / (float)internalStateVulkan->height, 0.1f, 100.0f);
+
+    vec3 camera = {{0, 0, 3}};
+    vec3 target = {{0.0f, 0.0f, 0.0f}};
+    vec3 up     = {{0.0f, 1.0f, 0.0f}};
+
+    mat4 view = mat4_look_at(camera, target, up);
+
+    ubo.view = view;
+    ubo.projection = proj;
+
+    memcpy(internalStateVulkan->uniformBuffersMapped[internalStateVulkan->currentFrame], &ubo, sizeof(ubo));
 }
 
 void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* buffer, VkDeviceMemory* bufferMemory) {
@@ -1163,30 +1189,6 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         FATAL("Failed to record command buffer");
     }
-}
-
-void updateUniformBuffers(double deltaTime) {
-    // static std::chrono::time_point startTime = std::chrono::high_resolution_clock::now();
-    // std::chrono::time_point currentTime = std::chrono::high_resolution_clock::now();
-    // float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-    // UniformBufferObject ubo{};
-    // ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f) * time * 0, glm::vec3(0.0f, 0.0f, 1.0f));
-    // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    // ubo.projection = glm::perspective(glm::radians(45.0f), swapchainImageExtent.width / (float) swapchainImageExtent.height, 0.1f, 10.0f);
-    // ubo.projection[1][1] *= -1;
-
-    double elapsedTime = platformGetTime() - internalStateVulkan->startTime;
-
-    UniformBufferObject ubo = {};
-
-    // ubo.model = mat4_rotation_x(elapsedTime * 3.1416 / 180 * 45);
-    // ubo.model = mat4_identity();
-    // ubo.model = mat4_scale(elapsedTime, elapsedTime, elapsedTime);
-
-    ubo.model = mat4_mul(mat4_rotation_x(45 * 3.1416 / 180 * elapsedTime), mat4_rotation_y(45 * 3.1416 / 180 * elapsedTime));
-    // ubo.model = mat4_translation(0, 0, 0.2 * elapsedTime);
-
-    memcpy(internalStateVulkan->uniformBuffersMapped[internalStateVulkan->currentFrame], &ubo, sizeof(ubo));
 }
 
 void drawFrame(double deltaTime) {
