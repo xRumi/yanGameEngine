@@ -15,13 +15,13 @@ char memory_usage_str[memory_usage_str_length];
 void* memalloc(uint64_t size, MemoryTag tag) {
     internalStateMemory.totalAllocated += size;
     internalStateMemory.taggedAllocation[tag] += size;
-    void* mem = malloc(size); // TODO: add alignment
+    void* mem = malloc(size); // TODO: add alignment or maybe some new system
     return mem;
 };
 void memfree(void* mem, uint64_t size, MemoryTag tag) {
     internalStateMemory.totalAllocated -= size;
     internalStateMemory.taggedAllocation[tag] -= size;
-    free(mem); // TODO: add alignment
+    free(mem);
 };
 
 // reused string

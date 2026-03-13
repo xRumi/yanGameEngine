@@ -40,8 +40,7 @@ $(BUILD_DIR)/%.c.o: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 shaders:
-	glslc ./src/assets/shaders/shader.vert -o ./src/assets/shaders/vert.spv -g
-	glslc ./src/assets/shaders/shader.frag -o ./src/assets/shaders/frag.spv -g
+	find ./assets \( -name "*.frag" -o -name "*.vert" \) -exec glslc {} -o {}.spv -g \;
 
 run: $(BUILD_DIR)/$(TARGET) shaders
 	$(BUILD_DIR)/main

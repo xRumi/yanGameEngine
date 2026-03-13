@@ -15,7 +15,6 @@
 #include <pthread.h>
 
 PlatformState platformState;
-int platformWindowClosed = 0;
 
 struct {
     struct wl_display* wl_display;
@@ -74,7 +73,7 @@ void xdg_toplevel_configure(void* data, struct xdg_toplevel* xdg_toplevel, int32
 
 }
 void xdg_toplevel_close(void* data, struct xdg_toplevel* xdg_toplevel) {
-    platformWindowClosed = 1;
+    platformState.platformWindowClosed = 1;
     TRACE("Window closed");
 }
 void xdg_toplevel_configure_bounds(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height) {

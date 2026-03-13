@@ -3,6 +3,8 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 
+#include "rendererAPI.h"
+
 uint32_t* load_indices(const cgltf_accessor* accessor) {
     if (!accessor || accessor->type != cgltf_type_scalar) return NULL;
     unsigned long count = accessor->count,
@@ -51,6 +53,12 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                 case cgltf_attribute_type_color: {
                     vec4 color = { {0, 0, 0, 1} };
                     memcpy(&color, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
+                    color = (vec4){{ // random color
+                        (rand() % 256) / 256.0,
+                        (rand() % 256) / 256.0,
+                        (rand() % 256) / 256.0,
+                        1
+                    }};
                     vertices[j].color = color;
                     break;
                 }
@@ -71,7 +79,7 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
-Model* load_model(const char* gltf_path) {
+Model* loadModel(const char* gltf_path) {
     cgltf_options options = {};
     cgltf_data* gltf_data;
     if (cgltf_parse_file(&options, gltf_path, &gltf_data) != cgltf_result_success) {
@@ -84,10 +92,13 @@ Model* load_model(const char* gltf_path) {
     }
 
     Model* model = memalloc(sizeof(Model), MEMORY_TAG_MODEL_LOADER);
+    memset(model, 0, sizeof(Model));
     model->mesh = darray_create_reserve(Mesh, gltf_data->meshes_count);
 
     for (int i = 0; i < gltf_data->meshes_count; i++) {
         Mesh* mesh = &model->mesh[i];
+
+        mesh->pipelineType = PIPELINE_TYPE_MESH;
 
         int primitives_count = gltf_data->meshes[i].primitives_count;
         for (int j = 0; j < primitives_count; j++) {
@@ -107,7 +118,6 @@ Model* load_model(const char* gltf_path) {
                     WARN("[%s] Unknown primitive provided", gltf_path);
                 }
             }
-
         }
     }
     cgltf_free(gltf_data);

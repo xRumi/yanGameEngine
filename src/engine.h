@@ -1,14 +1,14 @@
 #pragma once
 #include "defines.h"
-#include "renderer_vulkan.h"
 #include "platform.h"
 #include <time.h>
 #include "asset_manager.h"
+#include "renderer.h"
 
 typedef struct EngineState {
 } EngineState;
 
-void engineInitialization();
-void engineRun();
+void engineInitialize();
+void engineLoop();
 void engineShutdown();
 EngineState* engineGetEngineState();

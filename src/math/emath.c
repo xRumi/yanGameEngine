@@ -173,8 +173,8 @@ mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up) {
 mat4 mat4_perspective(float fov, float aspect, float near, float far) {
     float tanHalfFov = tanf(TO_RADIANS(fov) / 2.0f);
     mat4 res = {};
-    res.e[0][0]  = 1.0f / (aspect * tanHalfFov);
-    res.e[1][1]  = 1.0f / tanHalfFov;
+    res.e[0][0] = 1.0f / (aspect * tanHalfFov);
+    res.e[1][1] = 1.0f / tanHalfFov;
     res.e[2][2] = far / (far - near);
     res.e[2][3] = 1.0f;
     res.e[3][2] = - (near * far) / (far - near);

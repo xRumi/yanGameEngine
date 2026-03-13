@@ -16,12 +16,11 @@ void logOutput(logLevel level, const char* message, ...) {
         message++;
     }
     int messageLimit = 32768;
-    char output[messageLimit + 16]; // 32k message limit;
+    char output[messageLimit + 16];
     __builtin_va_list args;
     va_start(args, message);
     vsnprintf(output, messageLimit, message, args);
     va_end(args);
-    // TODO: do something else based on config
     if (skipLevelString) printf("%s\n" ANSI_RESET_ALL, output);
     else printf("%s%s\n" ANSI_RESET_ALL, levelStrings[level], output);
 }
