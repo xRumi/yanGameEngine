@@ -2,6 +2,9 @@
 
 EngineState* engineState;
 
+volatile int volatile_true  = 1;
+volatile int volatile_false = 0;
+
 void commonAssets() {
     assert(sizeof(char) == 1);
     assert(sizeof(vec2) == 8);
