@@ -161,7 +161,7 @@ int allocate_shm_file(uint64_t size) {
     return fd;
 }
 
-void platformInitialize(const char *applicationName, uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     if (strcmp("wayland", getenv("XDG_SESSION_TYPE")) != 0) {
         FATAL("Session type wayland required");
     }
@@ -187,7 +187,7 @@ void platformInitialize(const char *applicationName, uint32_t x, uint32_t y, uin
 
     internalStatePlatform.xdg_toplevel = xdg_surface_get_toplevel(internalStatePlatform.xdg_surface);
     xdg_toplevel_add_listener(internalStatePlatform.xdg_toplevel, &xdg_toplevel_listener, NULL);
-    xdg_toplevel_set_title(internalStatePlatform.xdg_toplevel, "yanGameEngine - Triangle");
+    xdg_toplevel_set_title(internalStatePlatform.xdg_toplevel, windowTitle);
 
     // zxdg decoration related
     internalStatePlatform.zxdg_toplevel_decoration_v1 = zxdg_decoration_manager_v1_get_toplevel_decoration(internalStatePlatform.zxdg_decoration_manager_v1, internalStatePlatform.xdg_toplevel);

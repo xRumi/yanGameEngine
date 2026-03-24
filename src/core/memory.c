@@ -16,6 +16,7 @@ void* memalloc(uint64_t size, MemoryTag tag) {
     internalStateMemory.totalAllocated += size;
     internalStateMemory.taggedAllocation[tag] += size;
     void* mem = malloc(size); // TODO: add alignment or maybe some new system
+    memset(mem, 0, size);
     return mem;
 };
 void memfree(void* mem, uint64_t size, MemoryTag tag) {

@@ -1,4 +1,4 @@
-#include "files.h"
+#include "utils.h"
 
 char* readFile(const char* filename) {
     FILE* file = fopen(filename, "rb");

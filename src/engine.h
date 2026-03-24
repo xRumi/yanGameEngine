@@ -8,7 +8,6 @@
 typedef struct EngineState {
 } EngineState;
 
-void engineInitialize();
-void engineLoop();
+void engineInitialize(const char* windowTitle);
 void engineShutdown();
 EngineState* engineGetEngineState();

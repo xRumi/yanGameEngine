@@ -210,90 +210,135 @@ void createIndexBuffer(RendererState internalStateRenderer, uint32_t* indices, V
     vkFreeMemory(internalStateRenderer.device, staggingMemory, NULL);
 }
 
-PipelineState* createCommonPipelines(RendererState internalStateRenderer) {
-    PipelineState* pipelineStates = darray_create_reserve(PipelineState, PIPELINE_TYPE_MAX);
+void copyBufferToImage(RendererState internalStateRenderer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(internalStateRenderer);
+    VkBufferImageCopy region = {};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
 
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = (float)internalStateRenderer.height;
-    viewport.width = (float)internalStateRenderer.width;
-    viewport.height = -(float)internalStateRenderer.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent = (VkExtent2D){.width = internalStateRenderer.width, .height = internalStateRenderer.height};
+    region.imageOffset = (VkOffset3D){0, 0, 0};
+    region.imageExtent = (VkExtent3D){
+        width,
+        height,
+        1
+    };
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    endSingleTimeCommands(internalStateRenderer, commandBuffer);
+}
 
-    for (int i = 0; i < PIPELINE_TYPE_MAX; i++)
-        switch (i) {
-            case PIPELINE_TYPE_MESH: {
-                // create mesh pipeline
+void generateMipmaps(RendererState internalStateRenderer, VkImage image, uint32_t width, uint32_t height, VkFormat format, uint32_t mipLevels) {
+    VkFormatProperties formatProperties = {};
+    vkGetPhysicalDeviceFormatProperties(internalStateRenderer.physicalDevice, format, &formatProperties);
+    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+        FATAL("Texture image format does not support linear filter");
+    }
 
-                PipelineState* pipeline = &pipelineStates[i];
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(internalStateRenderer);
+    VkImageMemoryBarrier imageMemoryBarrier = {};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+    imageMemoryBarrier.subresourceRange.layerCount = 1;
+    imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+    imageMemoryBarrier.subresourceRange.levelCount = 1;
+    
+    int32_t mipWidth = width, mipHeight = height;
+    
+    for (uint32_t i = 1; i < mipLevels; i++) {
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imageMemoryBarrier.subresourceRange.baseMipLevel = i - 1;
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
 
-                VkVertexInputBindingDescription* vertexInputBindings = darray_create_reserve(VkVertexInputBindingDescription, 1);
-                vertexInputBindings[0].binding = 0;
-                vertexInputBindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-                vertexInputBindings[0].stride = sizeof(Vertex);
+        VkImageBlit imageBlit = {};
+        imageBlit.srcOffsets[0] = (VkOffset3D){0, 0, 0};
+        imageBlit.srcOffsets[1] = (VkOffset3D){mipWidth, mipHeight, 1};
+        imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageBlit.srcSubresource.mipLevel = i - 1;
+        imageBlit.srcSubresource.layerCount = 1;
+        imageBlit.srcSubresource.baseArrayLayer = 0;
+        imageBlit.dstOffsets[0] = (VkOffset3D){0, 0, 0};
+        imageBlit.dstOffsets[1] = (VkOffset3D){mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
+        imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageBlit.dstSubresource.mipLevel = i;
+        imageBlit.dstSubresource.layerCount = 1;
+        imageBlit.dstSubresource.baseArrayLayer = 0;
+        vkCmdBlitImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_LINEAR);
 
-                VkVertexInputAttributeDescription* vertexInputAttributeDescriptions = darray_create_reserve(VkVertexInputAttributeDescription, 3);
-                vertexInputAttributeDescriptions[0].binding = 0;
-                vertexInputAttributeDescriptions[0].location = 0;
-                vertexInputAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-                vertexInputAttributeDescriptions[0].offset = offsetof(Vertex, position);
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
 
-                vertexInputAttributeDescriptions[1].binding = 0;
-                vertexInputAttributeDescriptions[1].location = 1;
-                vertexInputAttributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-                vertexInputAttributeDescriptions[1].offset = offsetof(Vertex, color);
+        if (mipWidth > 1) mipWidth /= 2;
+        if (mipHeight > 1) mipHeight /= 2;
+    }
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.subresourceRange.baseMipLevel = mipLevels - 1;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
 
-                vertexInputAttributeDescriptions[2].binding = 0;
-                vertexInputAttributeDescriptions[2].location = 2;
-                vertexInputAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-                vertexInputAttributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+    endSingleTimeCommands(internalStateRenderer, commandBuffer);
+}
 
-                VkDescriptorSetLayoutBinding* descriptorSetLayoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 1);
+void createTextureImage(RendererState internalStateRenderer, void* pixels, uint32_t width, uint32_t height, uint32_t mipLevels, VkImage* textureImage, VkImageView* textureImageView, VkDeviceMemory* textureImageMemory) {
+    VkDeviceSize imageSize = width * height * 4;
+    VkBuffer staggingBuffer;
+    VkDeviceMemory staggingMemory;
+    createBuffer(internalStateRenderer, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &staggingBuffer, &staggingMemory);
+    
+    void* data;
+    vkMapMemory(internalStateRenderer.device, staggingMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, imageSize);
+    vkUnmapMemory(internalStateRenderer.device, staggingMemory);
 
-                descriptorSetLayoutBindings[0].binding = 0;
-                descriptorSetLayoutBindings[0].descriptorCount = 1;
-                descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    createImage(internalStateRenderer, width, height, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+    transitionImageLayout(internalStateRenderer, *textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage(internalStateRenderer, staggingBuffer, *textureImage, width, height);
+    // transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    generateMipmaps(internalStateRenderer, *textureImage, width, height, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
 
-                VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
-                descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-                descriptorSetLayoutCreateInfo.bindingCount = darray_get_length(descriptorSetLayoutBindings);
-                descriptorSetLayoutCreateInfo.pBindings = descriptorSetLayoutBindings;
-                if (vkCreateDescriptorSetLayout(internalStateRenderer.device, &descriptorSetLayoutCreateInfo, NULL, &pipeline->descriptorSetLayout) != VK_SUCCESS) {
-                    FATAL("Failed to create descriptor set layout");
-                }
+    vkDestroyBuffer(internalStateRenderer.device, staggingBuffer, NULL);
+    vkFreeMemory(internalStateRenderer.device, staggingMemory, NULL);
 
-                PipelineOptions options = {
-                    .vertShaderPath = "assets/shaders/mesh.vert.spv",
-                    .fragShaderPath = "assets/shaders/mesh.frag.spv",
-                    .vertexBindingDescriptions = vertexInputBindings,
-                    .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
-                    .descriptorSetLayout = pipeline->descriptorSetLayout,
-                    .viewport = viewport,
-                    .scissor = scissor,
-                    .cullMode = VK_CULL_MODE_BACK_BIT,
-                    .frontFace = VK_FRONT_FACE_CLOCKWISE,
-                    .polygonMode = VK_POLYGON_MODE_FILL,
-                    .depthTestEnable = VK_TRUE,
-                    .blendEnable = VK_FALSE,
-                    .rasterizationSamples = internalStateRenderer.msaaSamples,
-                    .renderPass = internalStateRenderer.renderPass,
-                };
-                createGraphicsPipline(internalStateRenderer.device, options, &pipeline->pipeline, &pipeline->pipelineLayout);
-                TRACE("Mesh graphics pipeline created");
+    createImageView(internalStateRenderer, textureImageView, *textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_ASPECT_COLOR_BIT);
+}
 
-                darray_destroy(vertexInputBindings);
-                darray_destroy(vertexInputAttributeDescriptions);
-                darray_destroy(descriptorSetLayoutBindings);
+void createTextureSampler(RendererState internalStateRenderer, VkSampler* textureSampler) {
+    VkPhysicalDeviceProperties properties = {};
+    vkGetPhysicalDeviceProperties(internalStateRenderer.physicalDevice, &properties);
 
-                break;
-            }
-        }
-    return pipelineStates;
+    VkSamplerCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    createInfo.anisotropyEnable = VK_TRUE;
+    createInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    createInfo.compareEnable = VK_FALSE;
+    createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    createInfo.magFilter = VK_FILTER_LINEAR;
+    createInfo.minFilter = VK_FILTER_LINEAR;
+    createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    createInfo.maxLod = VK_LOD_CLAMP_NONE;
+    createInfo.unnormalizedCoordinates = VK_FALSE;
+
+    if (vkCreateSampler(internalStateRenderer.device, &createInfo, NULL, textureSampler) != VK_SUCCESS) {
+        FATAL("Failed to create texture sampler");
+    }
 }

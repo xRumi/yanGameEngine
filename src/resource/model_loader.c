@@ -1,9 +1,13 @@
-#include "model_loader.h"
+#include "asset_manager.h"
+#include "emath.h"
+#include "hashMap.h"
 
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 
-#include "rendererAPI.h"
+#define STBI_ONLY_PNG
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
 
 uint32_t* load_indices(const cgltf_accessor* accessor) {
     if (!accessor || accessor->type != cgltf_type_scalar) return NULL;
@@ -53,12 +57,6 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                 case cgltf_attribute_type_color: {
                     vec4 color = { {0, 0, 0, 1} };
                     memcpy(&color, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
-                    color = (vec4){{ // random color
-                        (rand() % 256) / 256.0,
-                        (rand() % 256) / 256.0,
-                        (rand() % 256) / 256.0,
-                        1
-                    }};
                     vertices[j].color = color;
                     break;
                 }
@@ -66,6 +64,12 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                     vec2 texCoord = { {0, 0} };
                     memcpy(&texCoord, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].texCoord = texCoord;
+                    break;
+                }
+                case cgltf_attribute_type_normal: {
+                    vec3 normal = {};
+                    memcpy(&normal, data + offset + stride * j, sizeof(vec3));
+                    vertices[j].normal = normal;
                     break;
                 }
                 default: {
@@ -79,9 +83,52 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
-Model* loadModel(const char* gltf_path) {
+HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCount) {
+    (void)stbi__mul2shorts_valid;
+    (void)stbi__addints_valid;
+    HashMap* imageHashMap = hashmap_create(100);
+    char imagePath[256];
+    for (uint32_t i = 0; i < imageCount; i++) {
+        if (!images[i].uri) {
+            WARN("Found image with null uri, skipping");
+            continue;
+        }
+        snprintf(imagePath, 256, "%s/%s", gltf_dir, images[i].uri);
+        int width = 0, height = 0, channel = 0;
+        stbi_uc* pixels = stbi_load(imagePath, &width, &height, &channel, STBI_rgb_alpha);
+        if (!pixels) {
+            WARN("Failed to load image, skipping");
+            continue;
+        }
+        Image* img = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER);
+        img->height = height;
+        img->width = width;
+        img->data = pixels;
+        hashmap_put(imageHashMap, hash_string(images[i].uri), (uint64_t)img);
+    }
+    return imageHashMap;
+}
+
+HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount) {
+    HashMap* materials = hashmap_create(materialCount * 10);
+    for (int i = 0; i < materialCount; i++) {
+        Material* material = memalloc(sizeof(Material), MEMORY_TAG_MODEL_LOADER);
+        if (gltf_material[i].pbr_metallic_roughness.base_color_texture.texture) {
+            material->baseColor.useTexture = 1;
+            material->baseColor.imageHash = hash_string(gltf_material[i].pbr_metallic_roughness.base_color_texture.texture->image->uri);
+        }
+        material->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_MODEL_LOADER);
+        material->pipelineType = PIPELINE_TYPE_MESH;
+        hashmap_put(materials, (uint64_t)&gltf_material[i], (uint64_t)material);
+    }
+    return materials;
+}
+
+Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
     cgltf_options options = {};
     cgltf_data* gltf_data;
+    char gltf_path[256];
+    snprintf(gltf_path, 256, "%s/%s", gltf_dir, gltf_file);
     if (cgltf_parse_file(&options, gltf_path, &gltf_data) != cgltf_result_success) {
         WARN("Failed to load model \"%s\"", gltf_path);
         return NULL;
@@ -92,25 +139,35 @@ Model* loadModel(const char* gltf_path) {
     }
 
     Model* model = memalloc(sizeof(Model), MEMORY_TAG_MODEL_LOADER);
-    memset(model, 0, sizeof(Model));
-    model->mesh = darray_create_reserve(Mesh, gltf_data->meshes_count);
+    model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
+    model->materials = load_materials(gltf_data->materials, gltf_data->materials_count);
 
     for (int i = 0; i < gltf_data->meshes_count; i++) {
-        Mesh* mesh = &model->mesh[i];
-
-        mesh->pipelineType = PIPELINE_TYPE_MESH;
-
         int primitives_count = gltf_data->meshes[i].primitives_count;
         for (int j = 0; j < primitives_count; j++) {
             cgltf_primitive* primitive = &gltf_data->meshes[i].primitives[j];
 
             switch (primitive->type) {
                 case cgltf_primitive_type_triangles: {
-                    mesh->indices = load_indices(primitive->indices);
-                    if (mesh->indices == NULL) FATAL("[%s] Failed to load indices", gltf_path);
+                    if (!primitive->material) {
+                        WARN("Material not provided for a mesh, skipping");
+                        break;
+                    }
+                    if (!hashmap_has(model->materials, (uint64_t)primitive->material)) {
+                        WARN("Material not found for a mesh, skipping");
+                        break;
+                    }
 
-                    mesh->vertices = load_vertices(primitive->attributes, primitive->attributes_count);
-                    if (mesh->vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
+                    Mesh mesh = {};
+
+                    mesh.indices = load_indices(primitive->indices);
+                    if (mesh.indices == NULL) FATAL("[%s] Failed to load indices", gltf_path);
+
+                    mesh.vertices = load_vertices(primitive->attributes, primitive->attributes_count);
+                    if (mesh.vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
+
+                    Material* material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
+                    darray_push(material->meshes, mesh);
 
                     break;
                 }

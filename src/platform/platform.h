@@ -9,7 +9,7 @@ typedef struct PlatformState {
     bool platformWindowClosed;
 } PlatformState;
 
-void platformInitialize(const char* applicationName, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+void platformInitialize(const char* windowTitle, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 void platformPullEvent();
 void platformShutdown();
 

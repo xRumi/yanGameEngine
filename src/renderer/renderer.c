@@ -452,6 +452,23 @@ void createSyncObjects() {
     }
 }
 
+void createDescriptorPool() {
+    VkDescriptorPoolSize poolSizes[2];
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = MAX_FRAMES_IN_FLIGHT;
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+    descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolCreateInfo.poolSizeCount = CARRAY_SIZE(poolSizes);
+    descriptorPoolCreateInfo.pPoolSizes = poolSizes;
+    descriptorPoolCreateInfo.maxSets = 1000;
+    if (vkCreateDescriptorPool(internalStateRenderer.device, &descriptorPoolCreateInfo, NULL, &internalStateRenderer.descriptorPool) != VK_SUCCESS) {
+        FATAL("Failed to create descriptor pool");
+    }
+}
+
 void createFrameUBO() {
     PipelineState* pipeline = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_MESH];
 
@@ -466,26 +483,13 @@ void createFrameUBO() {
         vkMapMemory(internalStateRenderer.device, internalStateRenderer.frameUBOMemory[i], 0, bufferSize, 0, &internalStateRenderer.frameUBOMapped[i]);
     }
 
-    VkDescriptorPoolSize poolSizes[1];
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
-
-    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
-    descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolCreateInfo.poolSizeCount = CARRAY_SIZE(poolSizes);
-    descriptorPoolCreateInfo.pPoolSizes = poolSizes;
-    descriptorPoolCreateInfo.maxSets = MAX_FRAMES_IN_FLIGHT;
-    if (vkCreateDescriptorPool(internalStateRenderer.device, &descriptorPoolCreateInfo, NULL, &pipeline->descriptorPool) != VK_SUCCESS) {
-        FATAL("Failed to create descriptor pool");
-    }
-
     VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {};
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipeline->descriptorSetLayout;
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipeline->descriptorSetLayouts[0];
     pipeline->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = pipeline->descriptorPool;
+    allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
     allocInfo.pSetLayouts = layouts;
     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     if (vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, pipeline->descriptorSets) != VK_SUCCESS) {
@@ -493,15 +497,16 @@ void createFrameUBO() {
     }
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkWriteDescriptorSet writeDescriptors[1] = {};
+
         VkDescriptorBufferInfo bufferInfo = {};
         bufferInfo.buffer = internalStateRenderer.frameUBO[i];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(FrameUBO);
 
-        VkWriteDescriptorSet writeDescriptors[1] = {};
         writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptors[0].descriptorCount = 1;
         writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptors[0].descriptorCount = 1;
         writeDescriptors[0].dstSet = pipeline->descriptorSets[i];
         writeDescriptors[0].pBufferInfo = &bufferInfo;
         writeDescriptors[0].dstBinding = 0;
@@ -513,28 +518,93 @@ void createFrameUBO() {
 }
 
 // api functions
-void rendererDrawEntity(Entity* entity) {
-    darray_push(internalStateRenderer.entityToDraw, entity);
+void rendererSetFPS(double fps) {
+    internalStateRenderer.targetFrameTime = 1 / (double)fps;
+}
+
+void rendererAddEntity(Entity* entity) {
+    hashmap_put(internalStateRenderer.entities, entity->id, (uint64_t)entity);
 }
 
 void rendererLoadMesh(Mesh* mesh) {
-    MeshRendererState* rendererState = memalloc(sizeof(MeshRendererState), MEMORY_TAG_RENDERER);
-    createVertexBuffer(internalStateRenderer, mesh->vertices, &rendererState->vertexBuffer, &rendererState->vertexBufferMemory);
-    createIndexBuffer(internalStateRenderer, mesh->indices, &rendererState->indexBuffer, &rendererState->indexBufferMemory);
-    mesh->rendererStateRef = rendererState;
+    MeshRendererState* meshRendererState = memalloc(sizeof(MeshRendererState), MEMORY_TAG_RENDERER);
+    createVertexBuffer(internalStateRenderer, mesh->vertices, &meshRendererState->vertexBuffer, &meshRendererState->vertexBufferMemory);
+    createIndexBuffer(internalStateRenderer, mesh->indices, &meshRendererState->indexBuffer, &meshRendererState->indexBufferMemory);
+    mesh->meshRendererStateRef = meshRendererState;
     TRACE("Load mesh");
+}
+void rendererLoadMaterial(Material* material, HashMap* images) {
+    MaterialRendererState* materialRendererState = memalloc(sizeof(MaterialRendererState), MEMORY_TAG_RENDERER);
+
+    PipelineState* pipeline = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_MESH];
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
+    allocInfo.pSetLayouts = &pipeline->descriptorSetLayouts[1];
+    allocInfo.descriptorSetCount = 1;
+    VkResult f = vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, &materialRendererState->descriptorSet);
+    if (f != VK_SUCCESS) {
+        FATAL("Failed to allocate material descriptor sets");
+    }
+    VkWriteDescriptorSet writeDescriptors[1] = {};
+
+    if (material->baseColor.useTexture) {
+        Image* image = (Image*)hashmap_get(images, material->baseColor.imageHash);
+        uint32_t mipLevels = floor(log2(MAX(image->width, image->height))) + 1;
+        createTextureImage(internalStateRenderer, image->data, image->width, image->height, mipLevels, &materialRendererState->textureImage, &materialRendererState->textureImageView, &materialRendererState->textureImageMemory);
+        
+        VkDescriptorImageInfo imageInfo = {};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = materialRendererState->textureImageView;
+        imageInfo.sampler = internalStateRenderer.textureSampler;
+
+        writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptors[0].descriptorCount = 1;
+        writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writeDescriptors[0].dstSet = materialRendererState->descriptorSet;
+        writeDescriptors[0].pImageInfo = &imageInfo;
+        writeDescriptors[0].dstBinding = 0;
+        writeDescriptors[0].dstArrayElement = 0;
+    }
+
+    vkUpdateDescriptorSets(internalStateRenderer.device, CARRAY_SIZE(writeDescriptors), writeDescriptors, 0, NULL);
+
+    material->materialRendererStateRef = materialRendererState;
 }
 void rendererLoadModel(Model* model) {
     if (model->rendererLoaded) return;
-    int meshCount = darray_get_length(model->mesh);
-    for (int i = 0; i < meshCount; i++) {
-        Mesh* mesh = &model->mesh[i];
-        rendererLoadMesh(mesh);
-    }
+    hashmap_foreach(model->materials, Material*, material, {
+        rendererLoadMaterial(material, model->images);
+        int meshCount = darray_get_length(material->meshes);
+        for (int i = 0; i < meshCount; i++) {
+            Mesh* mesh = &material->meshes[i];
+            rendererLoadMesh(mesh);
+        }
+    });
     model->rendererLoaded = true;
     TRACE("Load model");
 }
 // api functions
+
+void updateFrameUBO(double deltaTime) {
+    double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
+    (void)elapsedTime;
+
+    FrameUBO ubo = {};
+
+    mat4 proj = mat4_perspective(90, (float)internalStateRenderer.width / (float)internalStateRenderer.height, 0.1f, 100.0f);
+
+    vec3 camera = {{0, 0, 3}};
+    vec3 target = {{0.0f, 0.0f, 0.0f}};
+    vec3 up     = {{0.0f, 1.0f, 0.0f}};
+
+    mat4 view = mat4_look_at(camera, target, up);
+
+    ubo.view = view;
+    ubo.projection = proj;
+
+    memcpy(internalStateRenderer.frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
+}
 
 void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo = {};
@@ -556,70 +626,62 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     renderPassInfo.pClearValues = clearColors;
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    uint64_t entityCount = darray_get_length(internalStateRenderer.entityToDraw);
-    for (uint64_t i = 0; i < entityCount; i++) {
-        Model* model = (*internalStateRenderer.entityToDraw[i]).modelRef;
+    VkViewport viewport = {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)internalStateRenderer.width;
+    viewport.height = (float)internalStateRenderer.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset = (VkOffset2D){};
+    scissor.extent = internalStateRenderer.swapchainImageExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    enum PipelineType previousPipeline = PIPELINE_TYPE_MAX;
+
+    hashmap_foreach(internalStateRenderer.entities, Entity*, entity, {
+        Model* model = entity->modelRef;
         if (!model->rendererLoaded) rendererLoadModel(model);
-        int meshCount = darray_get_length(model->mesh);
-        for (int j = 0; j < meshCount; j++) {
-            Mesh mesh = model->mesh[j];
-            MeshRendererState meshRendererState = *(MeshRendererState*)mesh.rendererStateRef;
-            PipelineState pipelineState = internalStateRenderer.pipelineStates[mesh.pipelineType];
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
-            VkViewport viewport = {};
-            viewport.x = 0.0f;
-            viewport.y = (float)internalStateRenderer.height;
-            viewport.width = (float)internalStateRenderer.width;
-            viewport.height = -(float)internalStateRenderer.height;
-            viewport.minDepth = 0.0f;
-            viewport.maxDepth = 1.0f;
-            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-            VkRect2D scissor = {};
-            scissor.offset = (VkOffset2D){0, 0};
-            scissor.extent = internalStateRenderer.swapchainImageExtent;
-            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        PushConstant0 pushConstant0 = {};
+        pushConstant0.model = entity->transform;
+        bool modelPushCostantPushed = false;
 
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState.vertexBuffer, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, meshRendererState.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        hashmap_foreach(model->materials, Material*, material, {
+            MaterialRendererState* materialRendererState = material->materialRendererStateRef;
+            PipelineState pipelineState = internalStateRenderer.pipelineStates[material->pipelineType];
+            if (previousPipeline != material->pipelineType) {
+                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
+                previousPipeline = material->pipelineType;
+            }
+            if (!modelPushCostantPushed) {
+                vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
+            }
+
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
-            
-            vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh.indices), 1, 0, 0, 0);
-        }
-    }
 
+            int meshCount = darray_get_length(material->meshes);
+            for (int j = 0; j < meshCount; j++) {
+                Mesh mesh = material->meshes[j];
+                MeshRendererState* meshRendererState = mesh.meshRendererStateRef;
+
+                VkDeviceSize offsets[] = {0};
+                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState->vertexBuffer, offsets);
+                vkCmdBindIndexBuffer(commandBuffer, meshRendererState->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
+
+                vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh.indices), 1, 0, 0, 0);
+            }
+        });
+    });
     vkCmdEndRenderPass(commandBuffer);
     
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         FATAL("Failed to record command buffer");
     }
-}
-
-void updateFrameUBO(double deltaTime) {
-    double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
-    (void)elapsedTime;
-
-    FrameUBO ubo = {};
-
-    mat4 proj = mat4_perspective(90, (float)internalStateRenderer.width / (float)internalStateRenderer.height, 0.1f, 100.0f);
-
-    vec3 camera = {{0, 0, -3}};
-    vec3 target = {{0.0f, 0.0f, 0.0f}};
-    vec3 up     = {{0.0f, 1.0f, 0.0f}};
-
-    mat4 view = mat4_look_at(camera, target, up);
-
-    mat4 model = mat4_identity();
-    // model = mat4_translation(0, 0, elapsedTime);
-    model = mat4_mul(mat4_rotation_x(45 * elapsedTime), mat4_rotation_y(45 * elapsedTime));
-    // model = mat4_scale(elapsedTime, elapsedTime, elapsedTime);
-    view = mat4_mul(view, model);
-
-    ubo.view = view;
-    ubo.projection = proj;
-
-    memcpy(internalStateRenderer.frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
 }
 
 void drawFrame(double deltaTime) {
@@ -674,7 +736,6 @@ void drawFrame(double deltaTime) {
 }
 
 void mainLoop() {
-    double targetFrameTime = 1.0 / (double)internalStateRenderer.fpsCap;
     double deltaTime = 0;
     double currentTime, lastTime = platformGetTime();
 
@@ -683,11 +744,11 @@ void mainLoop() {
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
-        if (internalStateRenderer.rendererShouldDraw) drawFrame(deltaTime);
+        drawFrame(deltaTime);
     
         double frameTime = platformGetTime() - currentTime;
-        if (frameTime < targetFrameTime) {
-            double sleepTime = targetFrameTime - frameTime;
+        if (frameTime < internalStateRenderer.targetFrameTime) {
+            double sleepTime = internalStateRenderer.targetFrameTime - frameTime;
             platformSleep(sleepTime);
         }
     }
@@ -697,7 +758,9 @@ void vulkanRendererInitialize() {
     internalStateRenderer.width = platformGetPlatformState()->width;
     internalStateRenderer.height = platformGetPlatformState()->height;
     internalStateRenderer.startTime = platformGetTime();
-    internalStateRenderer.entityToDraw = darray_create(Entity*);
+    internalStateRenderer.targetFrameTime = 1 / 60.0;
+    internalStateRenderer.entities = hashmap_create(1000);
+    internalStateRenderer.materialRendererStates = hashmap_create(100);
     createInstance();
     createSurface();
     pickPhysicalDevice();
@@ -712,8 +775,10 @@ void vulkanRendererInitialize() {
     createSyncObjects();
 
     internalStateRenderer.pipelineStates = createCommonPipelines(internalStateRenderer);
+    createDescriptorPool();
 
     createFrameUBO();
+    createTextureSampler(internalStateRenderer, &internalStateRenderer.textureSampler);
 }
 
 void vulkanCleanUp() {
@@ -779,7 +844,6 @@ void vulkanCleanUp() {
 
 void* vulkanRendererThreadEnter(void* arg) {
     vulkanRendererInitialize();
-    internalStateRenderer.rendererShouldDraw = true;
     internalStateRenderer.rendererReady = true;
     mainLoop();
     vulkanCleanUp();
@@ -791,99 +855,3 @@ void rendererInitialize() {
     (void)thread;
     while (internalStateRenderer.rendererReady == 0);
 }
-
-// void createTextureImage() {
-//     int width = 0, height = 0, channel = 0;
-//     stbi_uc* pixels = stbi_load("textures/viking_room.png", &width, &height, &channel, STBI_rgb_alpha);
-//     if (!pixels) {
-//         throw std::runtime_error("Failed to load texture image");
-//     }
-//     VkDeviceSize imageSize = width * height * 4;
-//     VkBuffer staggingBuffer;
-//     VkDeviceMemory staggingMemory;
-//     createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staggingBuffer, staggingMemory);
-    
-//     void* data;
-//     vkMapMemory(device, staggingMemory, 0, imageSize, 0, &data);
-//     memcpy(data, pixels, imageSize);
-//     vkUnmapMemory(device, staggingMemory);
-
-//     stbi_image_free(pixels);
-
-//     mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
-
-//     createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-//     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-//     copyBufferToImage(staggingBuffer, textureImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
-//     // transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-//     generateMipmaps(textureImage, width, height, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
-
-//     vkDestroyBuffer(device, staggingBuffer, nullptr);
-//     vkFreeMemory(device, staggingMemory, nullptr);
-
-//     createImageView(textureImageView, textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_ASPECT_COLOR_BIT);
-// }
-
-// void createTextureSampler() {
-//     VkPhysicalDeviceProperties properties = {};
-//     vkGetPhysicalDeviceProperties(internalStateRenderer.physicalDevice, &properties);
-
-//     VkSamplerCreateInfo createInfo = {};
-//     createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-//     createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-//     createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-//     createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-//     createInfo.anisotropyEnable = VK_TRUE;
-//     createInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-//     createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-//     createInfo.compareEnable = VK_FALSE;
-//     createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-//     createInfo.magFilter = VK_FILTER_LINEAR;
-//     createInfo.minFilter = VK_FILTER_LINEAR;
-//     createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-//     createInfo.maxLod = VK_LOD_CLAMP_NONE;
-//     createInfo.unnormalizedCoordinates = VK_FALSE;
-
-//     if (vkCreateSampler(internalStateRenderer.device, &createInfo, NULL, &internalStateRenderer.textureSampler) != VK_SUCCESS) {
-//         FATAL("Failed to create texture sampler");
-//     }
-// }
-
-// void loadMode2l() {
-
-//     Model* model = loadModel("./assets/world/models/BoxVertexColors/BoxVertexColors.gltf");
-
-//     darray_foreach(model->mesh, Mesh, x, {
-//         if (x.vertices) {
-//             internalStateRenderer.vertices = x.vertices;
-//             internalStateRenderer.indices = x.indices;
-//             break;
-//         }
-//     });
-
-//     DEBUG("loadded with verties: %d indices: %d", darray_get_length(internalStateRenderer.vertices), darray_get_length(internalStateRenderer.indices));
-
-//     // internalStateRenderer.vertices = darray_create_reserve(Vertex, 3);
-//     // internalStateRenderer.indices = darray_create_reserve(uint32_t, 3);
-//     // Vertex vertices[3] = {
-//     //     {
-//     //         {{-0.5, -0.5, 0}},
-//     //         {{1, 0, 0}},
-//     //         {{0, 0}}
-//     //     },
-//     //     {
-//     //         {{0.5, -0.5, 0}},
-//     //         {{0, 0, 1}},
-//     //         {{0, 0}}
-//     //     },
-//     //     {
-//     //         {{0, 0.5, 0}},
-//     //         {{0, 1, 0}},
-//     //         {{0, 0}}
-//     //     },
-//     // };
-//     // uint32_t indices[3] = {0, 1, 2};
-//     // memcpy(internalStateRenderer.vertices, vertices, sizeof(vertices));
-//     // memcpy(internalStateRenderer.indices, indices, sizeof(indices));
-//     // TRACE("Triangle model loaded");
-// }

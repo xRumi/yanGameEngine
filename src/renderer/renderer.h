@@ -8,7 +8,7 @@
 #include "rendererAPI.h"
 #include "darray.h"
 
-#include "files.h"
+#include "utils.h"
 
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #include <vulkan/vulkan.h>
@@ -23,6 +23,14 @@ typedef struct MeshRendererState {
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 } MeshRendererState;
+
+typedef struct MaterialRendererState {
+    VkImage textureImage;
+    VkImageView textureImageView;
+    VkDeviceMemory textureImageMemory;
+    uint32_t mipLevels;
+    VkDescriptorSet descriptorSet;
+} MaterialRendererState;
 
 typedef struct QueueFamilyIndices {
     int32_t graphicsFamily;
@@ -42,16 +50,19 @@ typedef struct FrameUBO {
     mat4 projection;
 } FrameUBO;
 
+typedef struct PushConstant0 {
+    mat4 model;
+} PushConstant0;
+
 typedef struct PipelineState {
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkDescriptorPool descriptorPool;
+    VkDescriptorSetLayout* descriptorSetLayouts;
     VkDescriptorSet* descriptorSets;
 } PipelineState;
 
 typedef struct RendererState {
-    uint32_t height, width, fpsCap;
+    uint32_t height, width;
     VkInstance instance;
     VkSurfaceKHR surface;
     VkPhysicalDevice physicalDevice;
@@ -68,6 +79,7 @@ typedef struct RendererState {
     VkFormat depthFormat;
     VkRenderPass renderPass;
     VkCommandPool commandPool;
+    VkDescriptorPool descriptorPool;
 
     VkCommandBuffer* commandBuffers;
 
@@ -87,16 +99,19 @@ typedef struct RendererState {
 
     uint32_t currentFrame;
     bool framebufferResized;
-    bool rendererShouldDraw;
     bool rendererReady;
     double startTime;
+    double targetFrameTime;
 
     VkBuffer* frameUBO;
     VkDeviceMemory* frameUBOMemory;
     void** frameUBOMapped;
 
     PipelineState* pipelineStates;
-    Entity** entityToDraw; // TODO: make thread safe
+    VkSampler textureSampler;
+
+    HashMap* entities; // TODO: make thread safe
+    HashMap* materialRendererStates;
 
 } RendererState;
 
@@ -109,6 +124,7 @@ void createImageView(RendererState internalRendererState, VkImageView* imageView
 VkCommandBuffer beginSingleTimeCommands(RendererState internalStateRenderer);
 void endSingleTimeCommands(RendererState internalStateRenderer, VkCommandBuffer commandBuffer);
 void transitionImageLayout(RendererState internalStateRenderer, VkImage image, VkFormat format, uint32_t mipLevels,VkImageLayout oldLayout, VkImageLayout newLayout);
+void copyBufferToImage(RendererState internalStateRenderer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 void createBuffer(RendererState internalStateRenderer, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* buffer, VkDeviceMemory* bufferMemory);
 void copyBuffer(RendererState internalStateRenderer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -116,5 +132,25 @@ void copyBuffer(RendererState internalStateRenderer, VkBuffer srcBuffer, VkBuffe
 void createVertexBuffer(RendererState internalStateRenderer, Vertex* vertices, VkBuffer* vertexBuffer, VkDeviceMemory* vertexBufferMemory);
 void createIndexBuffer(RendererState internalStateRenderer, uint32_t* indices, VkBuffer* indexBuffer, VkDeviceMemory* indexBufferMemory);
 
+void createTextureImage(RendererState internalStateRenderer, void* pixels, uint32_t width, uint32_t height, uint32_t mipLevels, VkImage* textureImage, VkImageView* textureImageView, VkDeviceMemory* textureImageMemory);
+void generateMipmaps(RendererState internalStateRenderer, VkImage image, uint32_t width, uint32_t height, VkFormat format, uint32_t mipLevels);
+void createTextureSampler(RendererState internalStateRenderer, VkSampler* textureSampler);
 
+typedef struct PipelineOptions {
+    const char* vertShaderPath;
+    const char* fragShaderPath;
+    VkVertexInputBindingDescription* vertexBindingDescriptions;
+    VkVertexInputAttributeDescription* vertexAttributeDescriptions;
+    VkDescriptorSetLayout* descriptorSetLayouts;
+    VkViewport viewport;
+    VkRect2D scissor;
+    VkCullModeFlags cullMode;
+    VkFrontFace frontFace;
+    VkPolygonMode polygonMode;
+    VkBool32 depthTestEnable, blendEnable;
+    VkSampleCountFlagBits rasterizationSamples;
+    VkRenderPass renderPass;
+} PipelineOptions;
+
+void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline* pipeline, VkPipelineLayout* pipelineLayout);
 PipelineState* createCommonPipelines(RendererState internalStateRenderer);

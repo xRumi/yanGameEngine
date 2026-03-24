@@ -8,21 +8,14 @@ void commonAssets() {
     assert(sizeof(vec3) == 12);
 }
 
-void engineInitialize() {
+void engineInitialize(const char* windowTitle) {
     commonAssets();
 
     srand(time(NULL));
     
     engineState = memalloc(sizeof(EngineState), MEMORY_TAG_ENGINE);
-    platformInitialize("yanGameEngine", 0, 0, 600, 600);
+    platformInitialize(windowTitle, 0, 0, 600, 600);
     rendererInitialize();
-}
-
-void engineLoop() {
-    while (!platformGetPlatformState()->platformWindowClosed) {
-        platformPullEvent();
-        platformSleep(1.0 / 60.0);
-    }
 }
 
 void engineShutdown() {
