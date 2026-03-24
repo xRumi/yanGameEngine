@@ -573,14 +573,15 @@ void rendererLoadMaterial(Material* material, HashMap* images) {
 }
 void rendererLoadModel(Model* model) {
     if (model->rendererLoaded) return;
-    hashmap_foreach(model->materials, Material*, material, {
+    Material* material;
+    hashmap_foreach(model->materials, material) {
         rendererLoadMaterial(material, model->images);
         int meshCount = darray_get_length(material->meshes);
         for (int i = 0; i < meshCount; i++) {
             Mesh* mesh = &material->meshes[i];
             rendererLoadMesh(mesh);
         }
-    });
+    }
     model->rendererLoaded = true;
     TRACE("Load model");
 }
@@ -641,16 +642,16 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     enum PipelineType previousPipeline = PIPELINE_TYPE_MAX;
-
-    hashmap_foreach(internalStateRenderer.entities, Entity*, entity, {
+    Entity* entity;
+    hashmap_foreach(internalStateRenderer.entities, entity) {
         Model* model = entity->modelRef;
         if (!model->rendererLoaded) rendererLoadModel(model);
 
         PushConstant0 pushConstant0 = {};
         pushConstant0.model = entity->transform;
         bool modelPushCostantPushed = false;
-
-        hashmap_foreach(model->materials, Material*, material, {
+        Material* material;
+        hashmap_foreach(model->materials, material) {
             MaterialRendererState* materialRendererState = material->materialRendererStateRef;
             PipelineState pipelineState = internalStateRenderer.pipelineStates[material->pipelineType];
             if (previousPipeline != material->pipelineType) {
@@ -675,8 +676,8 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
 
                 vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh.indices), 1, 0, 0, 0);
             }
-        });
-    });
+        }
+    }
     vkCmdEndRenderPass(commandBuffer);
     
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
