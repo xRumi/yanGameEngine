@@ -35,11 +35,11 @@ typedef struct Vertex {
     vec3 position;
     vec4 color;
     vec2 texCoord;
+    vec3 normal;
+    vec4 tangent;
 } Vertex;
 
 // typedef struct Vertex {
-//     float normal[3];
-//     float tangent[4];
 //     uint16_t joints[4];
 //     float weights[4];
 // } Vertex;
