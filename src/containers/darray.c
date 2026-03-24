@@ -1,28 +1,29 @@
 #include "darray.h"
 
-void* _darray_create(uint64_t capacity, uint64_t stride) {
-    unsigned char* block = (unsigned char*)memalloc(sizeof(DarrayState) + (capacity * stride), MEMORY_TAG_DARRAY);
-    memset(block, 0, sizeof(DarrayState));
+void* _darray_create(uint64_t capacity, uint64_t stride, enum MemoryTag memoryTag) {
+    unsigned char* block = (unsigned char*)memalloc(sizeof(DarrayState) + (capacity * stride), memoryTag);
     DarrayState* state = (DarrayState *)block;
     state->capacity = capacity;
     state->stride = stride;
+    state->memoryTag = memoryTag;
     return (block + sizeof(DarrayState));
 };
 
-void* _darray_create_reserve(uint64_t length, uint64_t stride) {
-    void* darray = _darray_create(length, stride);
+void* _darray_create_reserve(uint64_t length, uint64_t stride, enum MemoryTag memoryTag) {
+    void* darray = _darray_create(length, stride, memoryTag);
     _darray_get_state(darray)->length = length;
     return darray;
 }
 
 void _darray_destroy(void* darray) {
+    if (darray == NULL) return;
     DarrayState* state = _darray_get_state(darray);
-    memfree((void*)state, sizeof(DarrayState) + (state->capacity * state->stride), MEMORY_TAG_DARRAY);
+    memfree((void*)state, sizeof(DarrayState) + (state->capacity * state->stride), state->memoryTag);
 };
 
 void* _darray_resize_capacity(void* darray, uint64_t capacity) {
     DarrayState* state = _darray_get_state(darray);
-    void* new_darray = _darray_create(capacity, state->stride);
+    void* new_darray = _darray_create(capacity, state->stride, state->memoryTag);
     DarrayState* new_state = _darray_get_state(new_darray);
     new_state->length = state->length;
     new_state->whatever = state->whatever;

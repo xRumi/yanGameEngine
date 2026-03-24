@@ -6,13 +6,14 @@ typedef struct DarrayState {
     uint64_t capacity;
     uint64_t length;
     uint64_t stride;
+    enum MemoryTag memoryTag;
     uint64_t whatever;
 } DarrayState;
 
 #define _DARRAY_INITIAL_CAPACITY 2
 
-void* _darray_create(uint64_t capacity, uint64_t stride);
-void* _darray_create_reserve(uint64_t length, uint64_t stride);
+void* _darray_create(uint64_t capacity, uint64_t stride, enum MemoryTag memoryTag);
+void* _darray_create_reserve(uint64_t length, uint64_t stride, enum MemoryTag memoryTag);
 void _darray_destroy(void* darray);
 
 void* _darray_insert_at(void* darray, const void* data, uint64_t index);
@@ -20,12 +21,14 @@ void* _darray_erase_at(void* darray, uint64_t index);
 
 DarrayState* _darray_get_state(const void* darray);
 
-#define darray_create(type) _darray_create(_DARRAY_INITIAL_CAPACITY, sizeof(type))
-#define darray_create_reserve(type, length) _darray_create_reserve(length, sizeof(type))
-#define darray_insert_at(darray, data, index)                                               \
-    {                                                                                       \
-        typeof(data) __temp = data;                                                           \
-        darray = _darray_insert_at(darray, &__temp, index);                                   \
+#define darray_create_memoryTag(type, memoryTag) _darray_create(_DARRAY_INITIAL_CAPACITY, sizeof(type), memoryTag)
+#define darray_create(type) darray_create_memoryTag(type, MEMORY_TAG_DARRAY)
+#define darray_create_reserve_memoryTag(type, length, memoryTag) _darray_create_reserve(length, sizeof(type), memoryTag)
+#define darray_create_reserve(type, length) darray_create_reserve_memoryTag(type, length, MEMORY_TAG_DARRAY);
+#define darray_insert_at(darray, data, index)                                                   \
+    {                                                                                           \
+        typeof(data) __temp = data;                                                             \
+        darray = _darray_insert_at(darray, &__temp, index);                                     \
     }
 #define darray_erase_at(darray, index) darray = _darray_erase_at(darray, index);
 
