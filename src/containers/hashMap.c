@@ -12,7 +12,10 @@ HashMap* hashmap_create(uint64_t capacity) {
     return hashMap;
 }
 void hashmap_put(HashMap* hashMap, uint64_t key, uint64_t val) {
-    if (hashmap_has(hashMap, key)) return;
+    if (hashmap_has(hashMap, key)) {
+        WARN("hashmap_put: key already exists");
+        return;
+    }
     hashMap->size++;
     uint64_t index = hashFunction(key, hashMap->capacity);
     if (hashMap->nodes[index] == NULL) hashMap->nodes[index] = darray_create_memoryTag(HashNode, MEMORY_TAG_HASHMAP);
@@ -56,10 +59,7 @@ void hashmap_destroy(HashMap* hashMap) {
 uint64_t hash_string(const char* str) {
     uint64_t hash = 0;
     int length = strlen(str);
-    int uints = length / 4;
-    for (int i = 0; i < uints; i++)
-        hash += *(uint64_t*)(str + i*4);
-    for (int i = uints * 4; i < length; i++)
-        hash += (uint64_t)(str[i]) << (length - i);
+    for (int i = 0; i < length; i++)
+        hash += (uint64_t)str[i] << (i % 8);
     return hash;
 }
