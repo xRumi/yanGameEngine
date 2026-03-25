@@ -6,6 +6,7 @@
 #include "xdg-shell-client-protocol.h"
 #include "xdg-decoration-unstable-v1-protocol.h"
 #include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -29,10 +30,24 @@ struct {
     struct zxdg_toplevel_decoration_v1* zxdg_toplevel_decoration_v1;
     struct wl_seat* wl_seat;
     struct wl_keyboard* wl_keyboard;
+    struct wl_pointer* wl_pointer;
     struct xkb_state* xkb_state;
     struct xkb_context* xkb_context;
     struct xkb_keymap* xkb_keymap;
 } internalStatePlatform;
+
+const uint32_t keyboard_input_xkb_map[KEY_INPUT_MAX] = {
+    XKB_KEY_A, XKB_KEY_B, XKB_KEY_C, XKB_KEY_D, XKB_KEY_E, XKB_KEY_F, XKB_KEY_G, XKB_KEY_H, XKB_KEY_I, XKB_KEY_J, XKB_KEY_K, XKB_KEY_L, XKB_KEY_M, XKB_KEY_N, XKB_KEY_O, XKB_KEY_P, XKB_KEY_Q, XKB_KEY_R, XKB_KEY_S, XKB_KEY_T, XKB_KEY_U, XKB_KEY_V, XKB_KEY_W, XKB_KEY_X, XKB_KEY_Y, XKB_KEY_Z,
+    XKB_KEY_a, XKB_KEY_b, XKB_KEY_c, XKB_KEY_d, XKB_KEY_e, XKB_KEY_f, XKB_KEY_g, XKB_KEY_h, XKB_KEY_i, XKB_KEY_j, XKB_KEY_k, XKB_KEY_l, XKB_KEY_m, XKB_KEY_n, XKB_KEY_o, XKB_KEY_p, XKB_KEY_q, XKB_KEY_r, XKB_KEY_s, XKB_KEY_t, XKB_KEY_u, XKB_KEY_v, XKB_KEY_w, XKB_KEY_x, XKB_KEY_y, XKB_KEY_z,
+    XKB_KEY_0, XKB_KEY_1, XKB_KEY_2, XKB_KEY_3, XKB_KEY_4, XKB_KEY_5, XKB_KEY_6, XKB_KEY_7, XKB_KEY_8, XKB_KEY_9
+};
+bool keyboard_input_xkb[256];
+
+struct {
+    bool inside_surface;
+    PointerInput prev;
+    PointerInput curr;
+} pointer_input;
 
 static void registry_handle_global(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
     //TRACE("interface: '%s', version: %d, name: %d", interface, version, name);
@@ -98,29 +113,36 @@ void wl_keyboard_keymap(void* data, struct wl_keyboard* wl_keyboard, uint32_t fo
     internalStatePlatform.xkb_keymap = xkb_keymap_new_from_string(internalStatePlatform.xkb_context, keymap_shm, format, XKB_KEYMAP_COMPILE_NO_FLAGS);
     internalStatePlatform.xkb_state = xkb_state_new(internalStatePlatform.xkb_keymap);
 }
-void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
-    uint32_t* key;
-    wl_array_for_each(key, keys) {
-        char buf[128];
-        xkb_keysym_t keysym = xkb_state_key_get_one_sym(internalStatePlatform.xkb_state, *key + 8);
-        xkb_keysym_get_name(keysym, buf, sizeof(buf));
-        DEBUG("keyboard enter sym: %s (%d)", buf, keysym);
-    }
-}
-void wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
 
-}
-void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
+void handle_wl_keyboard_input(uint32_t key, uint32_t state) {
     char buf[128];
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(internalStatePlatform.xkb_state, key + 8);
     xkb_keysym_get_name(keysym, buf, sizeof(buf));
-    DEBUG("sym: %s (%d)", buf, keysym);
+    if (keysym >= CARRAY_SIZE(keyboard_input_xkb)) {
+        WARN("Unknown key (%s) %s", buf, state == WL_KEYBOARD_KEY_STATE_PRESSED ? "pressed" : "released");
+        return;
+    }
+    keyboard_input_xkb[keysym] = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
+}
+
+void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
+    uint32_t* key;
+    wl_array_for_each(key, keys) {
+        handle_wl_keyboard_input(*key, WL_KEYBOARD_KEY_STATE_PRESSED);
+    }
+}
+void wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
+    int keymapSize = CARRAY_SIZE(keyboard_input_xkb);
+    for (int i = 0; i < keymapSize; i++) keyboard_input_xkb[i] = false;
+}
+void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
+    handle_wl_keyboard_input(key, state);
 }
 void wl_keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group) {
     xkb_state_update_mask(internalStatePlatform.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, mods_locked);
 }
 void wl_keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, int32_t delay) {
-    // get system wise keyboard info
+    // get key repeat info from system
 }
 const struct wl_keyboard_listener wl_keyboard_listener = {
     .keymap = wl_keyboard_keymap,
@@ -128,18 +150,76 @@ const struct wl_keyboard_listener wl_keyboard_listener = {
     .leave = wl_keyboard_leave,
     .key = wl_keyboard_key,
     .modifiers = wl_keyboard_modifiers,
-    .repeat_info = wl_keyboard_repeat_info
+    .repeat_info = wl_keyboard_repeat_info,
+};
+void wl_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+    pointer_input.curr = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
+    pointer_input.prev = pointer_input.curr;
+    pointer_input.inside_surface = true;
+}
+void wl_pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface) {
+    pointer_input.inside_surface = false;
+}
+void wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+    pointer_input.prev = pointer_input.curr;
+    pointer_input.curr = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
+}
+void wl_pointer_button(void *data,
+		       struct wl_pointer *wl_pointer,
+		       uint32_t serial,
+		       uint32_t time,
+		       uint32_t button,
+		       uint32_t state){}
+void wl_pointer_frame(void *data,
+		      struct wl_pointer *wl_pointer){}
+void wl_pointer_axis(void *data,
+		     struct wl_pointer *wl_pointer,
+		     uint32_t time,
+		     uint32_t axis,
+		     wl_fixed_t value){}
+void wl_pointer_axis_source(void *data,
+			    struct wl_pointer *wl_pointer,
+			    uint32_t axis_source){}
+void wl_pointer_axis_stop(void *data,
+			  struct wl_pointer *wl_pointer,
+			  uint32_t time,
+			  uint32_t axis){}
+void wl_pointer_axis_discrete(void *data,
+			      struct wl_pointer *wl_pointer,
+			      uint32_t axis,
+			      int32_t discrete){}
+void wl_pointer_axis_value120(void *data,
+			      struct wl_pointer *wl_pointer,
+			      uint32_t axis,
+			      int32_t value120){}
+void wl_pointer_axis_relative_direction(void *data,
+					struct wl_pointer *wl_pointer,
+					uint32_t axis,
+					uint32_t direction){}
+
+const struct wl_pointer_listener wl_pointer_listener = {
+    .enter = wl_pointer_enter,
+    .leave = wl_pointer_leave,
+    .motion = wl_pointer_motion,
+    .button = wl_pointer_button,
+    .axis = wl_pointer_axis,
+    .frame = wl_pointer_frame,
+    .axis_source = wl_pointer_axis_source,
+    .axis_stop = wl_pointer_axis_stop,
+    .axis_discrete = wl_pointer_axis_discrete,
+    .axis_value120 = wl_pointer_axis_value120,
+    .axis_relative_direction = wl_pointer_axis_relative_direction
 };
 void wl_seat_name(void* data, struct wl_seat* wl_seat, const char* name) {
 }
 void wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
-    bool have_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
-    if (have_keyboard && internalStatePlatform.wl_keyboard == NULL) {
+    if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
         internalStatePlatform.wl_keyboard = wl_seat_get_keyboard(internalStatePlatform.wl_seat);
         wl_keyboard_add_listener(internalStatePlatform.wl_keyboard, &wl_keyboard_listener, NULL);
-    } else if (!have_keyboard && internalStatePlatform.wl_keyboard != NULL) {
-        wl_keyboard_release(internalStatePlatform.wl_keyboard);
-        internalStatePlatform.wl_keyboard = NULL;
+    }
+    if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
+        internalStatePlatform.wl_pointer = wl_seat_get_pointer(wl_seat);
+        wl_pointer_add_listener(internalStatePlatform.wl_pointer, &wl_pointer_listener, NULL);
     }
 }
 const struct wl_seat_listener wl_seat_listener = {
@@ -227,6 +307,23 @@ void platformSleep(double time) {
     ts.tv_sec = (time_t)time;
     ts.tv_nsec = (time - ts.tv_sec) * 1e9;
     nanosleep(&ts, NULL);
+}
+
+bool platformInputKeyDown(KeyboardInputMap key) {
+    return keyboard_input_xkb[keyboard_input_xkb_map[key]];
+}
+
+PointerInput platformInputPointerCurr() {
+    return pointer_input.inside_surface ? pointer_input.curr : (PointerInput){};
+}
+PointerInput platformInputPointerDiff() {
+    if (!pointer_input.inside_surface) return (PointerInput){};
+    PointerInput ret = {{
+        pointer_input.curr.x - pointer_input.prev.x,
+        pointer_input.curr.y - pointer_input.prev.y
+    }};
+    pointer_input.prev = pointer_input.curr;
+    return ret;
 }
 
 uint64_t platformThreadCreate(void*(*fun)(void*), void* arg) {
