@@ -1,5 +1,5 @@
 #include "asset_manager.h"
-#include "emath.h"
+#include "asset_types.h"
 #include "hashMap.h"
 
 #define CGLTF_IMPLEMENTATION
@@ -15,7 +15,7 @@ uint32_t* load_indices(const cgltf_accessor* accessor) {
         offset = accessor->offset,
         stride = accessor->stride;
     uint8_t* data = (uint8_t*)accessor->buffer_view->buffer->data + accessor->buffer_view->offset;
-    uint32_t* indices = darray_create_reserve(uint32_t, count);
+    uint32_t* indices = darray_create_reserve_memoryTag(uint32_t, count, MEMORY_TAG_MODEL_LOADER);
     for (int i = 0; i < count; i++) {
         uint8_t* nthData = data + offset + stride * i;
         uint32_t index = 0;
@@ -33,7 +33,16 @@ uint32_t* load_indices(const cgltf_accessor* accessor) {
 Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount) {
     if (!attributes) return NULL;
     uint32_t vertexCount = attributes[0].data->count;
-    Vertex* vertices = darray_create_reserve(Vertex, vertexCount);
+    Vertex* vertices = darray_create_reserve_memoryTag(Vertex, vertexCount, MEMORY_TAG_MODEL_LOADER);
+    for (int i = 0; i < vertexCount; i++) {
+        vertices[i] = (Vertex){
+            .position = {{0, 0, 0}},
+            .color = {{1, 1, 1, 1}},
+            .texCoord = {{0, 0}},
+            .normal = {{0, 0, 1}},
+            .tangent = {{1, 0, 0, 1}},
+        };
+    }
     for (int i = 0; i < attributeCount; i++) {
         cgltf_attribute_type attributeType = attributes[i].type;
         cgltf_accessor* accessor = attributes[i].data;
