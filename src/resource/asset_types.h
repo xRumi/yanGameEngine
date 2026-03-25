@@ -4,6 +4,23 @@
 #include "math_types.h"
 #include "hashMap.h"
 
+typedef struct Vertex {
+    vec3 position;
+    vec4 color;
+    vec2 texCoord;
+    vec3 normal;
+    vec4 tangent;
+} Vertex;
+
+// typedef struct Vertex {
+//     uint16_t joints[4];
+//     float weights[4];
+// } Vertex;
+
+// default values
+// joints -> (0,0,0,0)
+// weights -> (1,0,0,0)
+
 typedef enum PipelineType {
     PIPELINE_TYPE_MESH,
     PIPELINE_TYPE_MAX

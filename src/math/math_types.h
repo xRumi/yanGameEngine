@@ -30,24 +30,3 @@ typedef union mat4 {
         vec4 x, y, z, w;
     };
 } mat4;
-
-typedef struct Vertex {
-    vec3 position;
-    vec4 color;
-    vec2 texCoord;
-    vec3 normal;
-    vec4 tangent;
-} Vertex;
-
-// typedef struct Vertex {
-//     uint16_t joints[4];
-//     float weights[4];
-// } Vertex;
-
-// default values
-// normal  -> (0,0,1)
-// tangent -> (1,0,0,1)
-// texcoord -> (0,0)
-// color -> (1,1,1,1)
-// joints -> (0,0,0,0)
-// weights -> (1,0,0,0)
