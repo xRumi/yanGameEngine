@@ -24,11 +24,14 @@ typedef struct MeshRendererState {
     VkDeviceMemory indexBufferMemory;
 } MeshRendererState;
 
-typedef struct MaterialRendererState {
+typedef struct ImageRendererState {
     VkImage textureImage;
     VkImageView textureImageView;
     VkDeviceMemory textureImageMemory;
     uint32_t mipLevels;
+} ImageRendererState;
+
+typedef struct MaterialRendererState {
     VkDescriptorSet descriptorSet;
 } MaterialRendererState;
 

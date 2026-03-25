@@ -533,6 +533,12 @@ void rendererLoadMesh(Mesh* mesh) {
     mesh->meshRendererStateRef = meshRendererState;
     TRACE("Load mesh");
 }
+void rendererLoadImage(Image* image) {
+    ImageRendererState* imageRendererState = memalloc(sizeof(ImageRendererState), MEMORY_TAG_RENDERER);
+    imageRendererState->mipLevels = floor(log2(MAX(image->width, image->height))) + 1;
+    createTextureImage(internalStateRenderer, image->data, image->width, image->height, imageRendererState->mipLevels, &imageRendererState->textureImage, &imageRendererState->textureImageView, &imageRendererState->textureImageMemory);
+    image->imageRendererStateRef = imageRendererState;
+}
 void rendererLoadMaterial(Material* material, HashMap* images) {
     MaterialRendererState* materialRendererState = memalloc(sizeof(MaterialRendererState), MEMORY_TAG_RENDERER);
 
@@ -548,14 +554,11 @@ void rendererLoadMaterial(Material* material, HashMap* images) {
     }
     VkWriteDescriptorSet writeDescriptors[1] = {};
 
-    if (material->baseColor.useTexture) {
-        Image* image = (Image*)hashmap_get(images, material->baseColor.imageHash);
-        uint32_t mipLevels = floor(log2(MAX(image->width, image->height))) + 1;
-        createTextureImage(internalStateRenderer, image->data, image->width, image->height, mipLevels, &materialRendererState->textureImage, &materialRendererState->textureImageView, &materialRendererState->textureImageMemory);
-        
+    {
+        ImageRendererState* imageRendererState = material->baseColor.image->imageRendererStateRef;
         VkDescriptorImageInfo imageInfo = {};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = materialRendererState->textureImageView;
+        imageInfo.imageView = imageRendererState->textureImageView;
         imageInfo.sampler = internalStateRenderer.textureSampler;
 
         writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -573,6 +576,10 @@ void rendererLoadMaterial(Material* material, HashMap* images) {
 }
 void rendererLoadModel(Model* model) {
     if (model->rendererLoaded) return;
+    Image* image;
+    hashmap_foreach(model->images, image) {
+        rendererLoadImage(image);
+    }
     Material* material;
     hashmap_foreach(model->materials, material) {
         rendererLoadMaterial(material, model->images);

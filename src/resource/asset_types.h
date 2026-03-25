@@ -29,11 +29,11 @@ typedef enum PipelineType {
 typedef struct Image {
     void* data;
     uint32_t width, height;
+    void* imageRendererStateRef;
 } Image;
 
 typedef struct Texture {
-    bool useTexture;
-    uint64_t imageHash;
+    Image* image;
 } Texture;
 
 typedef struct Mesh {

@@ -118,13 +118,12 @@ HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCo
     return imageHashMap;
 }
 
-HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount) {
+HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, HashMap* images) {
     HashMap* materials = hashmap_create(materialCount * 10);
     for (int i = 0; i < materialCount; i++) {
         Material* material = memalloc(sizeof(Material), MEMORY_TAG_MODEL_LOADER);
         if (gltf_material[i].pbr_metallic_roughness.base_color_texture.texture) {
-            material->baseColor.useTexture = 1;
-            material->baseColor.imageHash = hash_string(gltf_material[i].pbr_metallic_roughness.base_color_texture.texture->image->uri);
+            material->baseColor.image = (Image*)hashmap_get(images, hash_string(gltf_material[i].pbr_metallic_roughness.base_color_texture.texture->image->uri));
         }
         material->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_MODEL_LOADER);
         material->pipelineType = PIPELINE_TYPE_MESH;
@@ -149,7 +148,7 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
 
     Model* model = memalloc(sizeof(Model), MEMORY_TAG_MODEL_LOADER);
     model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
-    model->materials = load_materials(gltf_data->materials, gltf_data->materials_count);
+    model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
 
     for (int i = 0; i < gltf_data->meshes_count; i++) {
         int primitives_count = gltf_data->meshes[i].primitives_count;
