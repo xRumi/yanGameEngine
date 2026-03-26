@@ -134,8 +134,8 @@ void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline*
     vkDestroyShaderModule(device, fragShaderModule, NULL);
 }
 
-PipelineState* createCommonPipelines(RendererState internalStateRenderer) {
-    PipelineState* pipelineStates = darray_create_reserve(PipelineState, PIPELINE_TYPE_MAX);
+void createCommonPipelines(RendererState internalStateRenderer, PipelineState** pipelineStates) {
+    *pipelineStates = darray_create_reserve(PipelineState, PIPELINE_TYPE_MAX);
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
@@ -155,7 +155,7 @@ PipelineState* createCommonPipelines(RendererState internalStateRenderer) {
             case PIPELINE_TYPE_MESH: {
                 // create mesh pipeline
 
-                PipelineState* pipeline = &pipelineStates[i];
+                PipelineState* pipeline = &(*pipelineStates)[i];
 
                 VkVertexInputBindingDescription* vertexInputBindings = darray_create_reserve(VkVertexInputBindingDescription, 1);
                 vertexInputBindings[0].binding = 0;
@@ -248,5 +248,4 @@ PipelineState* createCommonPipelines(RendererState internalStateRenderer) {
                 break;
             }
         }
-    return pipelineStates;
 }

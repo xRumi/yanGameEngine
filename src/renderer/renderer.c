@@ -517,13 +517,43 @@ void createFrameUBO() {
     TRACE("Frame UBO created");
 }
 
-// api functions
-void rendererSetFPS(double fps) {
-    internalStateRenderer.targetFrameTime = 1 / (double)fps;
-}
+void updateFrameUBO(double deltaTime) {
+    double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
+    (void)elapsedTime;
 
-void rendererAddEntity(Entity* entity) {
-    hashmap_put(internalStateRenderer.entities, entity->id, (uint64_t)entity);
+    if (internalStateRenderer.camera.dirty) {
+        internalStateRenderer.camera.dirty = true;
+
+        uint32_t sensitivity = 2;
+
+        if (platformInputIsKeyDown(KEY_i)) internalStateRenderer.camera.direction.z -= deltaTime * sensitivity;
+        if (platformInputIsKeyDown(KEY_o)) internalStateRenderer.camera.direction.z += deltaTime * sensitivity;
+
+        if (platformWindowIsFocused() && platformPointerIsLocked()) {
+            PointerInput pointerVector = platformInputPointerRelative();
+            internalStateRenderer.camera.direction.x += pointerVector.x / (float)internalStateRenderer.width * sensitivity;
+            internalStateRenderer.camera.direction.y -= pointerVector.y / (float)internalStateRenderer.height * sensitivity;
+        }
+
+        // DEBUG("(%f, %f, %f)", internalStateRenderer.camera.direction.x, internalStateRenderer.camera.direction.y, internalStateRenderer.camera.direction.z);
+        
+        uint32_t cameraSpeed = 5;
+        if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.camera.position.z += -deltaTime * cameraSpeed;
+        if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.camera.position.z += deltaTime * cameraSpeed;
+        if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.camera.position.x += -deltaTime * cameraSpeed;
+        if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.camera.position.x += deltaTime * cameraSpeed;
+        if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.camera.position.y += deltaTime * cameraSpeed;
+        if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.camera.position.y += -deltaTime * cameraSpeed;
+
+        mat4 view = mat4_look(internalStateRenderer.camera.position, internalStateRenderer.camera.direction, internalStateRenderer.camera.up);
+        internalStateRenderer.camera.view = view;
+        internalStateRenderer.camera.projection = mat4_perspective(90, (float)internalStateRenderer.width / (float)internalStateRenderer.height, 0.1f, 100.0f);
+    }
+    FrameUBO ubo = {
+        .view = internalStateRenderer.camera.view,
+        .projection = internalStateRenderer.camera.projection
+    };
+    memcpy(internalStateRenderer.frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
 }
 
 void rendererLoadMesh(Mesh* mesh) {
@@ -591,27 +621,6 @@ void rendererLoadModel(Model* model) {
     }
     model->rendererLoaded = true;
     TRACE("Load model");
-}
-// api functions
-
-void updateFrameUBO(double deltaTime) {
-    double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
-    (void)elapsedTime;
-
-    FrameUBO ubo = {};
-
-    mat4 proj = mat4_perspective(90, (float)internalStateRenderer.width / (float)internalStateRenderer.height, 0.1f, 100.0f);
-
-    vec3 camera = {{0, 0, 3}};
-    vec3 target = {{0.0f, 0.0f, 0.0f}};
-    vec3 up     = {{0.0f, 1.0f, 0.0f}};
-
-    mat4 view = mat4_look_at(camera, target, up);
-
-    ubo.view = view;
-    ubo.projection = proj;
-
-    memcpy(internalStateRenderer.frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
 }
 
 void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -769,6 +778,8 @@ void vulkanRendererInitialize() {
     internalStateRenderer.targetFrameTime = 1 / 60.0;
     internalStateRenderer.entities = hashmap_create(1000);
     internalStateRenderer.materialRendererStates = hashmap_create(100);
+    rendererCameraReset();
+
     createInstance();
     createSurface();
     pickPhysicalDevice();
@@ -782,7 +793,7 @@ void vulkanRendererInitialize() {
     createFramebuffers();
     createSyncObjects();
 
-    internalStateRenderer.pipelineStates = createCommonPipelines(internalStateRenderer);
+    createCommonPipelines(internalStateRenderer, &internalStateRenderer.pipelineStates);
     createDescriptorPool();
 
     createFrameUBO();

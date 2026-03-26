@@ -148,10 +148,10 @@ mat4 mat4_transpose(mat4 m) {
 }
 mat4 mat4_inverse(mat4 m); // TODO: inverse matrix
 
-mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up) {
-    vec3 front = vec3_normalize(vec3_sub(cameraTarget, cameraPos)),
+mat4 mat4_look(vec3 cameraPos, vec3 cameraDir, vec3 up) {
+    vec3 front = vec3_normalize(cameraDir),
          right = vec3_normalize(vec3_cross(front, up)),
-         newUp = vec3_cross(right, front);
+         newUp = vec3_normalize(vec3_cross(right, front));
     mat4 ret = {{
         right.x, newUp.x, -front.x, 0,
         right.y, newUp.y, -front.y, 0,
@@ -159,6 +159,9 @@ mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up) {
         -vec3_dot(right, cameraPos), -vec3_dot(newUp, cameraPos), vec3_dot(front, cameraPos), 1
     }};
     return ret;
+}
+mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up) {
+    return mat4_look(cameraPos, vec3_sub(cameraTarget, cameraPos), up);
 }
 mat4 mat4_perspective(float fov, float aspect, float near, float far) {
     float tanHalfFov = tanf(TO_RADIANS(fov) / 2.0f);

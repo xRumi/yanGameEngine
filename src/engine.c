@@ -11,13 +11,13 @@ void commonAssets() {
     assert(sizeof(vec3) == 12);
 }
 
-void engineInitialize(const char* windowTitle) {
+void engineInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     commonAssets();
 
     srand(time(NULL));
     
     engineState = memalloc(sizeof(EngineState), MEMORY_TAG_ENGINE);
-    platformInitialize(windowTitle, 0, 0, 600, 600);
+    platformInitialize(windowTitle, x, y, width, height);
     rendererInitialize();
 }
 

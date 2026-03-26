@@ -44,9 +44,16 @@ void platformConsoleWrite(const char* message, uint8_t color);
 double platformGetTime();
 void platformSleep(double time);
 
-bool platformInputKeyDown(KeyboardInputMap key);
+bool platformInputIsKeyDown(KeyboardInputMap key);
 PointerInput platformInputPointerCurr();
-PointerInput platformInputPointerDiff();
+PointerInput platformInputPointerRelative();
 
+void platformPointerLock();
+void platformPointerUnlock();
+bool platformPointerIsLocked();
+void platformPointerHide();
+void platformPointerUnhide();
+
+bool platformWindowIsFocused();
 
 uint64_t platformThreadCreate(void*(*fun)(void*), void* arg);

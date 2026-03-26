@@ -53,6 +53,14 @@ typedef struct FrameUBO {
     mat4 projection;
 } FrameUBO;
 
+typedef struct Camera {
+    vec3 position;
+    vec3 direction;
+    vec3 up;
+    bool dirty;
+    mat4 view, projection;
+} Camera;
+
 typedef struct PushConstant0 {
     mat4 model;
 } PushConstant0;
@@ -106,6 +114,8 @@ typedef struct RendererState {
     double startTime;
     double targetFrameTime;
 
+    Camera camera;
+
     VkBuffer* frameUBO;
     VkDeviceMemory* frameUBOMemory;
     void** frameUBOMapped;
@@ -156,4 +166,4 @@ typedef struct PipelineOptions {
 } PipelineOptions;
 
 void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline* pipeline, VkPipelineLayout* pipelineLayout);
-PipelineState* createCommonPipelines(RendererState internalStateRenderer);
+void createCommonPipelines(RendererState internalStateRenderer, PipelineState** pipelineStates);

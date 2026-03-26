@@ -5,6 +5,8 @@
 #include <wayland-client.h>
 #include "xdg-shell-client-protocol.h"
 #include "xdg-decoration-unstable-v1-protocol.h"
+#include "relative-pointer-unstable-v1.h"
+#include "pointer-constraints-unstable-v1.h"
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -19,7 +21,7 @@ PlatformState platformState;
 
 struct {
     struct wl_display* wl_display;
-    struct wl_compositor* compositor;
+    struct wl_compositor* wl_compositor;
     struct wl_surface* wl_surface;
     struct wl_shm* wl_shm;
     struct wl_shm_pool* wl_shm_pool;
@@ -28,12 +30,25 @@ struct {
     struct xdg_toplevel* xdg_toplevel;
     struct zxdg_decoration_manager_v1* zxdg_decoration_manager_v1;
     struct zxdg_toplevel_decoration_v1* zxdg_toplevel_decoration_v1;
+    struct zwp_relative_pointer_manager_v1* zwp_relative_pointer_manager_v1;
+    struct zwp_pointer_constraints_v1* zwp_pointer_constraints_v1;
     struct wl_seat* wl_seat;
     struct wl_keyboard* wl_keyboard;
     struct wl_pointer* wl_pointer;
+    struct zwp_relative_pointer_v1* zwp_relative_pointer_v1;
+    struct zwp_locked_pointer_v1* zwp_locked_pointer_v1;
     struct xkb_state* xkb_state;
     struct xkb_context* xkb_context;
     struct xkb_keymap* xkb_keymap;
+
+    bool window_focused;
+    bool keyboard_input_xkb[256];
+    bool wl_pointer_inside_surface;
+    bool hide_cursor;
+    uint32_t wl_pointer_serial;
+    PointerInput wl_pointer_last_input;
+    PointerInput wl_relative_pointer_last_input;
+
 } internalStatePlatform;
 
 const uint32_t keyboard_input_xkb_map[KEY_INPUT_MAX] = {
@@ -41,27 +56,22 @@ const uint32_t keyboard_input_xkb_map[KEY_INPUT_MAX] = {
     XKB_KEY_a, XKB_KEY_b, XKB_KEY_c, XKB_KEY_d, XKB_KEY_e, XKB_KEY_f, XKB_KEY_g, XKB_KEY_h, XKB_KEY_i, XKB_KEY_j, XKB_KEY_k, XKB_KEY_l, XKB_KEY_m, XKB_KEY_n, XKB_KEY_o, XKB_KEY_p, XKB_KEY_q, XKB_KEY_r, XKB_KEY_s, XKB_KEY_t, XKB_KEY_u, XKB_KEY_v, XKB_KEY_w, XKB_KEY_x, XKB_KEY_y, XKB_KEY_z,
     XKB_KEY_0, XKB_KEY_1, XKB_KEY_2, XKB_KEY_3, XKB_KEY_4, XKB_KEY_5, XKB_KEY_6, XKB_KEY_7, XKB_KEY_8, XKB_KEY_9
 };
-bool keyboard_input_xkb[256];
-
-struct {
-    bool inside_surface;
-    PointerInput prev;
-    PointerInput curr;
-} pointer_input;
 
 static void registry_handle_global(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
-    //TRACE("interface: '%s', version: %d, name: %d", interface, version, name);
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
-        internalStatePlatform.compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
+        internalStatePlatform.wl_compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
     } else if (strcmp(interface, wl_shm_interface.name) == 0) {
         internalStatePlatform.wl_shm = wl_registry_bind(registry, name, &wl_shm_interface, 2);
     } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
         internalStatePlatform.xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
     } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
         internalStatePlatform.zxdg_decoration_manager_v1 = wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
-    }
-    else if (strcmp(interface, wl_seat_interface.name) == 0) {
+    } else if (strcmp(interface, wl_seat_interface.name) == 0) {
         internalStatePlatform.wl_seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
+    } else if (strcmp(interface, zwp_relative_pointer_manager_v1_interface.name) == 0) {
+        internalStatePlatform.zwp_relative_pointer_manager_v1 = wl_registry_bind(registry, name, &zwp_relative_pointer_manager_v1_interface, 1);
+    } else if (strcmp(interface, zwp_pointer_constraints_v1_interface.name) == 0) {
+        internalStatePlatform.zwp_pointer_constraints_v1 = wl_registry_bind(registry, name, &zwp_pointer_constraints_v1_interface, 1);
     }
 }
 const struct wl_registry_listener registry_listener = {
@@ -118,22 +128,25 @@ void handle_wl_keyboard_input(uint32_t key, uint32_t state) {
     char buf[128];
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(internalStatePlatform.xkb_state, key + 8);
     xkb_keysym_get_name(keysym, buf, sizeof(buf));
-    if (keysym >= CARRAY_SIZE(keyboard_input_xkb)) {
+    if (keysym >= CARRAY_SIZE(internalStatePlatform.keyboard_input_xkb)) {
         WARN("Unknown key (%s) %s", buf, state == WL_KEYBOARD_KEY_STATE_PRESSED ? "pressed" : "released");
         return;
     }
-    keyboard_input_xkb[keysym] = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
+    internalStatePlatform.keyboard_input_xkb[keysym] = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
 }
 
 void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
+    internalStatePlatform.window_focused = true;
     uint32_t* key;
     wl_array_for_each(key, keys) {
         handle_wl_keyboard_input(*key, WL_KEYBOARD_KEY_STATE_PRESSED);
     }
+    if (internalStatePlatform.zwp_locked_pointer_v1) platformPointerLock();
 }
 void wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
-    int keymapSize = CARRAY_SIZE(keyboard_input_xkb);
-    for (int i = 0; i < keymapSize; i++) keyboard_input_xkb[i] = false;
+    internalStatePlatform.window_focused = false;
+    int keymapSize = CARRAY_SIZE(internalStatePlatform.keyboard_input_xkb);
+    for (int i = 0; i < keymapSize; i++) internalStatePlatform.keyboard_input_xkb[i] = false;
 }
 void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
     handle_wl_keyboard_input(key, state);
@@ -153,16 +166,17 @@ const struct wl_keyboard_listener wl_keyboard_listener = {
     .repeat_info = wl_keyboard_repeat_info,
 };
 void wl_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
-    pointer_input.curr = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
-    pointer_input.prev = pointer_input.curr;
-    pointer_input.inside_surface = true;
+    internalStatePlatform.wl_pointer_last_input = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
+    internalStatePlatform.wl_pointer_inside_surface = true;
+    internalStatePlatform.wl_pointer_serial = serial;
+    if (internalStatePlatform.hide_cursor) wl_pointer_set_cursor(internalStatePlatform.wl_pointer, internalStatePlatform.wl_pointer_serial, NULL, 0, 0);
+    if (internalStatePlatform.zwp_locked_pointer_v1) platformPointerLock();
 }
 void wl_pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface) {
-    pointer_input.inside_surface = false;
+    internalStatePlatform.wl_pointer_inside_surface = true;
 }
 void wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
-    pointer_input.prev = pointer_input.curr;
-    pointer_input.curr = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
+    internalStatePlatform.wl_pointer_last_input = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
 }
 void wl_pointer_button(void *data,
 		       struct wl_pointer *wl_pointer,
@@ -210,6 +224,12 @@ const struct wl_pointer_listener wl_pointer_listener = {
     .axis_value120 = wl_pointer_axis_value120,
     .axis_relative_direction = wl_pointer_axis_relative_direction
 };
+void zwp_relative_pointer_v1_relative_motion(void *data, struct zwp_relative_pointer_v1 *zwp_relative_pointer_v1, uint32_t utime_hi, uint32_t utime_lo, wl_fixed_t dx, wl_fixed_t dy, wl_fixed_t dx_unaccel, wl_fixed_t dy_unaccel) {
+    internalStatePlatform.wl_relative_pointer_last_input = (PointerInput){{wl_fixed_to_int(dx), wl_fixed_to_int(dy)}};
+}
+const struct zwp_relative_pointer_v1_listener zwp_relative_pointer_v1_listener = {
+    .relative_motion = zwp_relative_pointer_v1_relative_motion
+};
 void wl_seat_name(void* data, struct wl_seat* wl_seat, const char* name) {
 }
 void wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
@@ -220,6 +240,8 @@ void wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabili
     if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
         internalStatePlatform.wl_pointer = wl_seat_get_pointer(wl_seat);
         wl_pointer_add_listener(internalStatePlatform.wl_pointer, &wl_pointer_listener, NULL);
+        internalStatePlatform.zwp_relative_pointer_v1 = zwp_relative_pointer_manager_v1_get_relative_pointer(internalStatePlatform.zwp_relative_pointer_manager_v1, internalStatePlatform.wl_pointer);
+        zwp_relative_pointer_v1_add_listener(internalStatePlatform.zwp_relative_pointer_v1, &zwp_relative_pointer_v1_listener, NULL);
     }
 }
 const struct wl_seat_listener wl_seat_listener = {
@@ -257,7 +279,7 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
 
     wl_display_roundtrip(internalStatePlatform.wl_display);
 
-    internalStatePlatform.wl_surface = wl_compositor_create_surface(internalStatePlatform.compositor);
+    internalStatePlatform.wl_surface = wl_compositor_create_surface(internalStatePlatform.wl_compositor);
 
     // xdg related
     xdg_wm_base_add_listener(internalStatePlatform.xdg_wm_base, &xdg_wm_base_listener, NULL);
@@ -281,6 +303,8 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
     platformState.surface = internalStatePlatform.wl_surface;
     platformState.width = width;
     platformState.height = height;
+
+    platformPullEvent();
 }
 
 void platformPullEvent() {
@@ -309,21 +333,41 @@ void platformSleep(double time) {
     nanosleep(&ts, NULL);
 }
 
-bool platformInputKeyDown(KeyboardInputMap key) {
-    return keyboard_input_xkb[keyboard_input_xkb_map[key]];
+bool platformInputIsKeyDown(KeyboardInputMap key) {
+    return internalStatePlatform.keyboard_input_xkb[keyboard_input_xkb_map[key]];
 }
 
 PointerInput platformInputPointerCurr() {
-    return pointer_input.inside_surface ? pointer_input.curr : (PointerInput){};
+    return internalStatePlatform.wl_pointer_last_input;
 }
-PointerInput platformInputPointerDiff() {
-    if (!pointer_input.inside_surface) return (PointerInput){};
-    PointerInput ret = {{
-        pointer_input.curr.x - pointer_input.prev.x,
-        pointer_input.curr.y - pointer_input.prev.y
-    }};
-    pointer_input.prev = pointer_input.curr;
+PointerInput platformInputPointerRelative() {
+    PointerInput ret = internalStatePlatform.wl_pointer_inside_surface ? internalStatePlatform.wl_relative_pointer_last_input : (PointerInput){{}};
+    internalStatePlatform.wl_relative_pointer_last_input = (PointerInput){{}};
     return ret;
+}
+
+void platformPointerLock() {
+    if (!internalStatePlatform.zwp_locked_pointer_v1) internalStatePlatform.zwp_locked_pointer_v1 = zwp_pointer_constraints_v1_lock_pointer(internalStatePlatform.zwp_pointer_constraints_v1, internalStatePlatform.wl_surface, internalStatePlatform.wl_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+}
+void platformPointerUnlock() {
+    if (internalStatePlatform.zwp_locked_pointer_v1) zwp_locked_pointer_v1_destroy(internalStatePlatform.zwp_locked_pointer_v1);
+    internalStatePlatform.zwp_locked_pointer_v1 = NULL;
+}
+bool platformPointerIsLocked() {
+    return internalStatePlatform.zwp_locked_pointer_v1 != NULL;
+}
+
+void platformPointerHide() {
+    internalStatePlatform.hide_cursor = true;
+    wl_pointer_set_cursor(internalStatePlatform.wl_pointer, internalStatePlatform.wl_pointer_serial, NULL, 0, 0);
+}
+void platformPointerUnhide() {
+    internalStatePlatform.hide_cursor = false;
+    // TODO: show cursor properly
+}
+
+bool platformWindowIsFocused() {
+    return internalStatePlatform.window_focused;
 }
 
 uint64_t platformThreadCreate(void*(*fun)(void*), void* arg) {

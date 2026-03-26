@@ -26,6 +26,7 @@ vec4 mat4_mul_vec4(mat4 m, vec4 v);
 mat4 mat4_transpose(mat4 m);
 mat4 mat4_inverse(mat4 m);
 
+mat4 mat4_look(vec3 cameraPos, vec3 cameraDir, vec3 up);
 mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up);
 mat4 mat4_perspective(float fov, float aspect, float near, float far);
 
