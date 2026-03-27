@@ -14,6 +14,9 @@ vec3 vec3_sub(vec3 a, vec3 b) {
         a.ele[2] - b.ele[2]
     }};
 }
+vec3 vec3_neg(vec3 a) {
+    return (vec3){{-a.x, -a.y, -a.z}};
+}
 vec3 vec3_scale(vec3 a, float scale) {
     return (vec3){{
         a.ele[0] * scale,
@@ -53,9 +56,14 @@ float vec3_length(vec3 a) {
     return sqrt(vec3_length_sqr(a));
 }
 
-vec4 vec3_to_vec4(vec3 a, float w) {
+vec4 vec4_from_vec3(vec3 a, float w) {
     return (vec4){{
         a.x, a.y, a.z, w
+    }};
+}
+vec3 vec3_from_vec4(vec4 a) {
+    return (vec3){{
+        a.x, a.y, a.z
     }};
 }
 
@@ -137,6 +145,13 @@ vec4 mat4_mul_vec4(mat4 m, vec4 v) {
         m.ele[1]*v.ele[0] + m.ele[5]*v.ele[1] + m.ele[9]*v.ele[2] + m.ele[13]*v.ele[3],
         m.ele[2]*v.ele[0] + m.ele[6]*v.ele[1] + m.ele[10]*v.ele[2] + m.ele[14]*v.ele[3],
         m.ele[3]*v.ele[0] + m.ele[7]*v.ele[1] + m.ele[11]*v.ele[2] + m.ele[15]*v.ele[3]
+    }};
+};
+vec3 mat4_mul_vec3(mat4 m, vec3 v) {
+    return (vec3){{
+        m.ele[0]*v.ele[0] + m.ele[4]*v.ele[1] + m.ele[8]*v.ele[2],
+        m.ele[1]*v.ele[0] + m.ele[5]*v.ele[1] + m.ele[9]*v.ele[2],
+        m.ele[2]*v.ele[0] + m.ele[6]*v.ele[1] + m.ele[10]*v.ele[2],
     }};
 };
 mat4 mat4_transpose(mat4 m) {

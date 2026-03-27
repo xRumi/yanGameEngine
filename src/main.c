@@ -19,8 +19,10 @@ int main() {
     rendererAddEntity(box1);
     rendererAddEntity(box2);
 
+    rendererCameraSetPosition((vec3){{0, -3, 0}});
+
     bool locked = false;
-    double lockKeyCoolDown = 0;
+    double lockKeyCoolDown = -1;
 
     double startTime = platformGetTime();
     while (!platformGetPlatformState()->platformWindowClosed) {

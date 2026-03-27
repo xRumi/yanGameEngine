@@ -5,10 +5,12 @@
 
 vec3 vec3_add(vec3 a, vec3 b);
 vec3 vec3_sub(vec3 a, vec3 b);
+vec3 vec3_neg(vec3 a);
 vec3 vec3_scale(vec3 a, float scale);
 vec3 vec3_cross(vec3 a, vec3 b);
 vec3 vec3_normalize(vec3 a);
 vec4 vec4_from_vec3(vec3 a, float w);
+vec3 vec3_from_vec4(vec4 a);
 
 float vec3_dot(vec3 a, vec3 b);
 float vec3_length_sqr(vec3 a);
@@ -23,6 +25,7 @@ mat4 mat4_rotation_z(float angle);
 
 mat4 mat4_mul(mat4 a, mat4 b);
 vec4 mat4_mul_vec4(mat4 m, vec4 v);
+vec3 mat4_mul_vec3(mat4 m, vec3 v);
 mat4 mat4_transpose(mat4 m);
 mat4 mat4_inverse(mat4 m);
 

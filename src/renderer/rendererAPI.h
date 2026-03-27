@@ -3,4 +3,5 @@
 
 void rendererSetFPS(double fps);
 void rendererCameraReset();
+void rendererCameraSetPosition(vec3 position);
 void rendererAddEntity(Entity* entity);
