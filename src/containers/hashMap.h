@@ -6,7 +6,6 @@
 typedef struct HashNode {
     uint64_t key;
     uint64_t val;
-    struct HashNode* next;
 } HashNode;
 
 typedef struct HashMap {
