@@ -17,7 +17,6 @@ ifeq ($(PLATFORM), Linux)
 	CC = gcc
 	CFLAGS = -fpic -Wall
 	LDFLAGS = -lvulkan -lxkbcommon -lm
-	CPPFLAGS += -DLinux
 	PLATFORMFLAGS += -lwayland-client
 else
 noname:
@@ -40,7 +39,7 @@ $(BUILD_DIR)/%.c.o: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 shaders:
-	find ./assets \( -name "*.frag" -o -name "*.vert" \) -exec glslc {} -o {}.spv -g \;
+	$(MAKE) -C ./assets/shaders
 
 run: $(BUILD_DIR)/$(TARGET) shaders
 	$(BUILD_DIR)/main
