@@ -1,6 +1,7 @@
 #pragma once
 
 #define TO_RADIANS(degree) degree * M_PI / 180.0
+#define TO_DEGREE(rad) rad * 180.0 / M_PI
 
 typedef union vec2 {
     float ele[2];

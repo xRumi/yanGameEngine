@@ -9,6 +9,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
+struct {
+} internalStateModelLoader;
+
 uint32_t* load_indices(const cgltf_accessor* accessor) {
     if (!accessor || accessor->type != cgltf_type_scalar) return NULL;
     unsigned long count = accessor->count,
@@ -92,10 +95,24 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
+void load_default_images(HashMap* images) {
+    Image* image0 = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER),
+        *image1 = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER);
+    image0->width = image0->height = 1;
+    image1->width = image1->height = 1;
+    image0->data = memalloc(sizeof(uint32_t), MEMORY_TAG_MODEL_LOADER);
+    image1->data = memalloc(sizeof(uint32_t), MEMORY_TAG_MODEL_LOADER);
+    memset(image0->data, 0, sizeof(uint32_t));
+    memset(image1->data, 255, sizeof(uint32_t));
+    hashmap_put(images, hash_string("__baseColor0"), (uint64_t)image0);
+    hashmap_put(images, hash_string("__baseColor255"), (uint64_t)image1);
+}
+
 HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCount) {
     (void)stbi__mul2shorts_valid;
     (void)stbi__addints_valid;
-    HashMap* imageHashMap = hashmap_create(100);
+    HashMap* imageHashMap = hashmap_create(imageCount * 10 + 1);
+    load_default_images(imageHashMap);
     char imagePath[256];
     for (uint32_t i = 0; i < imageCount; i++) {
         if (!images[i].uri) {
@@ -109,24 +126,31 @@ HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCo
             WARN("Failed to load image, skipping");
             continue;
         }
-        Image* img = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER);
-        img->height = height;
-        img->width = width;
-        img->data = pixels;
-        hashmap_put(imageHashMap, hash_string(images[i].uri), (uint64_t)img);
+        Image* image = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER);
+        image->height = height;
+        image->width = width;
+        image->data = pixels;
+        hashmap_put(imageHashMap, hash_string(images[i].uri), (uint64_t)image);
     }
     return imageHashMap;
 }
 
+Material* create_default_material(HashMap* images) {
+    Material* ret = memalloc(sizeof(Material), MEMORY_TAG_MODEL_LOADER);
+    ret->baseColor.image = (Image*)hashmap_get(images, hash_string("__baseColor255"));
+    ret->pipelineType = PIPELINE_TYPE_DEFAULT;
+    ret->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_MODEL_LOADER);
+    return ret;
+}
+
 HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, HashMap* images) {
-    HashMap* materials = hashmap_create(materialCount * 10);
+    HashMap* materials = hashmap_create(materialCount * 10 + 1);
+    hashmap_put(materials, 0, (uint64_t)create_default_material(images));
     for (int i = 0; i < materialCount; i++) {
-        Material* material = memalloc(sizeof(Material), MEMORY_TAG_MODEL_LOADER);
+        Material* material = create_default_material(images);
         if (gltf_material[i].pbr_metallic_roughness.base_color_texture.texture) {
             material->baseColor.image = (Image*)hashmap_get(images, hash_string(gltf_material[i].pbr_metallic_roughness.base_color_texture.texture->image->uri));
         }
-        material->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_MODEL_LOADER);
-        material->pipelineType = PIPELINE_TYPE_MESH;
         hashmap_put(materials, (uint64_t)&gltf_material[i], (uint64_t)material);
     }
     return materials;
@@ -157,10 +181,6 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
 
             switch (primitive->type) {
                 case cgltf_primitive_type_triangles: {
-                    if (!primitive->material) {
-                        WARN("Material not provided for a mesh, skipping");
-                        break;
-                    }
                     if (!hashmap_has(model->materials, (uint64_t)primitive->material)) {
                         WARN("Material not found for a mesh, skipping");
                         break;

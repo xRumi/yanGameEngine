@@ -92,10 +92,10 @@ mat4 mat4_scale(float x, float y, float z) {
         0, 0, 0, 1,
     }};
 }
-mat4 mat4_rotation_x(float angle) {
-    angle = TO_RADIANS(angle);
-    float c = cosf(angle),
-        s = sinf(angle);
+mat4 mat4_rotation_x(float degree) {
+    degree = TO_RADIANS(degree);
+    float c = cosf(degree),
+        s = sinf(degree);
     mat4 ret = {{
         1, 0, 0, 0,
         0, c, s, 0,
@@ -104,10 +104,10 @@ mat4 mat4_rotation_x(float angle) {
     }};
     return ret;
 }
-mat4 mat4_rotation_y(float angle) {
-    angle = TO_RADIANS(angle);
-    float c = cosf(angle),
-        s = sinf(angle);
+mat4 mat4_rotation_y(float degree) {
+    degree = TO_RADIANS(degree);
+    float c = cosf(degree),
+        s = sinf(degree);
     mat4 ret = {{
         c, 0,-s, 0,
         0, 1, 0, 0,
@@ -116,10 +116,10 @@ mat4 mat4_rotation_y(float angle) {
     }};
     return ret;
 }
-mat4 mat4_rotation_z(float angle) {
-    angle = TO_RADIANS(angle);
-    float c = cosf(angle),
-        s = sinf(angle);
+mat4 mat4_rotation_z(float degree) {
+    degree = TO_RADIANS(degree);
+    float c = cosf(degree),
+        s = sinf(degree);
     mat4 ret = {{
         c, s, 0, 0,
        -s, c, 0, 0,
@@ -163,37 +163,55 @@ mat4 mat4_transpose(mat4 m) {
 }
 mat4 mat4_inverse(mat4 m); // TODO: inverse matrix
 
-mat4 mat4_look(vec3 cameraPos, vec3 cameraDir, vec3 up) {
-    vec3 front = vec3_normalize(cameraDir),
+mat4 mat4_look(vec3 position, vec3 direction, vec3 up) {
+    vec3 front = vec3_normalize(direction),
          right = vec3_normalize(vec3_cross(front, up)),
-         newUp = vec3_normalize(vec3_cross(right, front));
+         newUp = vec3_cross(right, front);
     mat4 ret = {{
-        right.x, newUp.x, -front.x, 0,
-        right.y, newUp.y, -front.y, 0,
-        right.z, newUp.z, -front.z, 0,
-        -vec3_dot(right, cameraPos), -vec3_dot(newUp, cameraPos), vec3_dot(front, cameraPos), 1
+        right.x, newUp.x, front.x, 0,
+        right.y, newUp.y, front.y, 0,
+        right.z, newUp.z, front.z, 0,
+        -vec3_dot(right, position), -vec3_dot(newUp, position), -vec3_dot(front, position), 1
     }};
     return ret;
 }
-mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up) {
-    return mat4_look(cameraPos, vec3_sub(cameraTarget, cameraPos), up);
-}
-mat4 mat4_perspective(float fov, float aspect, float near, float far) {
-    float tanHalfFov = tanf(TO_RADIANS(fov) / 2.0f);
-    mat4 res = {};
-    res.e[0][0] = 1.0f / (aspect * tanHalfFov);
-    res.e[1][1] = - 1.0f / tanHalfFov;
-    res.e[2][2] = - (far + near) / (far - near);
-    res.e[2][3] = - 1.0f;
-    res.e[3][2] = - (2.0f * near * far) / (far - near);
-    return res;
+mat4 mat4_perspective(float fovy, float aspect, float near, float far) {
+    float tanHalfFovy = tanf(TO_RADIANS(fovy) / 2.0f);
+    mat4 ret = {};
+    ret.e[0][0] = 1.f / (aspect * tanHalfFovy);
+    ret.e[1][1] = -1.f / (tanHalfFovy);
+    ret.e[2][2] = -far / (far - near);
+    ret.e[2][3] = -1.f;
+    ret.e[3][2] = -(far * near) / (far - near);
+    return ret;
 }
 
-mat4 blenderToClipSpace() {
-    return (mat4){{
-        1, 0, 0, 0,
-        0, 0,-1, 0,
-        0, 1, 0, 0,
-        0, 0, 0, 1
+mat4 mat4_orthographic_projection(float left, float right, float top, float bottom, float near, float far) {
+    mat4 ret = {};
+    ret.e[0][0] = 2.f / (right - left);
+    ret.e[1][1] = 2.f / (bottom - top);
+    ret.e[2][2] = 1.f / (far - near);
+    ret.e[3][0] = -(right + left) / (right - left);
+    ret.e[3][1] = -(bottom + top) / (bottom - top);
+    ret.e[3][2] = -near / (far - near);
+    return ret;
+}
+
+mat4 mat4_view_YXZ(vec3 position, vec3 rotation) {
+    const float c1 = cosf(rotation.x);
+    const float s1 = sinf(rotation.x);
+    const float c2 = cosf(rotation.y);
+    const float s2 = sinf(rotation.y);
+    const float c3 = cosf(rotation.z);
+    const float s3 = sinf(rotation.z);
+    const vec3 u = {{(c1 * c3 + s1 * s2 * s3), (c2 * s3), (c1 * s2 * s3 - c3 * s1)}};
+    const vec3 v = {{(c3 * s1 * s2 - c1 * s3), (c2 * c3), (c1 * c3 * s2 + s1 * s3)}};
+    const vec3 w = {{(c2 * s1), (-s2), (c1 * c2)}};
+    mat4 ret = {{
+        u.x, v.x, w.x, 0,
+        u.y, v.y, w.y, 0,
+        u.z, v.z, w.z, 0,
+        -vec3_dot(u, position), -vec3_dot(v, position), -vec3_dot(w, position), 1
     }};
+  return ret;
 }

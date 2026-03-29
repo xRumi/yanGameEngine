@@ -22,7 +22,8 @@ typedef struct Vertex {
 // weights -> (1,0,0,0)
 
 typedef enum PipelineType {
-    PIPELINE_TYPE_MESH,
+    PIPELINE_TYPE_DEFAULT,
+    PIPELINE_TYPE_WIREFRAME,
     PIPELINE_TYPE_MAX
 } PipelineType;
 
@@ -51,8 +52,8 @@ typedef struct Material {
     float metallicFactor;
     float roughnessFactor;
 
-    Mesh* meshes;
     PipelineType pipelineType;
+    Mesh* meshes;
     void* materialRendererStateRef;
 } Material;
 

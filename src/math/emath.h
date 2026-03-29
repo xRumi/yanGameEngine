@@ -32,5 +32,5 @@ mat4 mat4_inverse(mat4 m);
 mat4 mat4_look(vec3 cameraPos, vec3 cameraDir, vec3 up);
 mat4 mat4_look_at(vec3 cameraPos, vec3 cameraTarget, vec3 up);
 mat4 mat4_perspective(float fov, float aspect, float near, float far);
-
-mat4 blenderToClipSpace();
+mat4 mat4_orthographic_projection(float left, float right, float top, float bottom, float near, float far);
+mat4 mat4_view_YXZ(vec3 position, vec3 rotation);
