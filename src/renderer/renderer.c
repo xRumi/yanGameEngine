@@ -195,6 +195,7 @@ void createLogicalDevice() {
 
     VkPhysicalDeviceFeatures features = {};
     features.samplerAnisotropy = true;
+    features.fillModeNonSolid = true;
 
     VkDeviceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -232,8 +233,8 @@ void createSwapchain() {
     }
 
     VkExtent2D extent = internalStateRenderer.swapchainSupportDetails.capabilities.currentExtent;
-    extent.height = internalStateRenderer.height;
-    extent.width = internalStateRenderer.width;
+    extent.height = platformGetPlatformState()->height;
+    extent.width = platformGetPlatformState()->width;
 
     uint32_t imageCount = internalStateRenderer.swapchainSupportDetails.capabilities.minImageCount + 1;
     if (internalStateRenderer.swapchainSupportDetails.capabilities.maxImageCount != 0 && imageCount > internalStateRenderer.swapchainSupportDetails.capabilities.maxImageCount) {
@@ -455,9 +456,9 @@ void createSyncObjects() {
 void createDescriptorPool() {
     VkDescriptorPoolSize poolSizes[2];
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
+    poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = MAX_FRAMES_IN_FLIGHT;
+    poolSizes[1].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
     descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -469,91 +470,44 @@ void createDescriptorPool() {
     }
 }
 
-void createFrameUBO() {
-    PipelineState* pipeline = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_MESH];
-
-    VkDeviceSize bufferSize = sizeof(FrameUBO);
-
-    internalStateRenderer.frameUBO = darray_create_reserve(FrameUBO, MAX_FRAMES_IN_FLIGHT);
-    internalStateRenderer.frameUBOMemory = darray_create_reserve(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
-    internalStateRenderer.frameUBOMapped = darray_create_reserve(void*, MAX_FRAMES_IN_FLIGHT);
-
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        createBuffer(internalStateRenderer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &internalStateRenderer.frameUBO[i], &internalStateRenderer.frameUBOMemory[i]);
-        vkMapMemory(internalStateRenderer.device, internalStateRenderer.frameUBOMemory[i], 0, bufferSize, 0, &internalStateRenderer.frameUBOMapped[i]);
-    }
-
-    VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {};
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipeline->descriptorSetLayouts[0];
-    pipeline->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
-
-    VkDescriptorSetAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
-    allocInfo.pSetLayouts = layouts;
-    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-    if (vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, pipeline->descriptorSets) != VK_SUCCESS) {
-        FATAL("Failed to allocate descriptor sets");
-    }
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkWriteDescriptorSet writeDescriptors[1] = {};
-
-        VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = internalStateRenderer.frameUBO[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(FrameUBO);
-
-        writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writeDescriptors[0].descriptorCount = 1;
-        writeDescriptors[0].dstSet = pipeline->descriptorSets[i];
-        writeDescriptors[0].pBufferInfo = &bufferInfo;
-        writeDescriptors[0].dstBinding = 0;
-        writeDescriptors[0].dstArrayElement = 0;
-
-        vkUpdateDescriptorSets(internalStateRenderer.device, 1, writeDescriptors, 0, NULL);
-    }
-    TRACE("Frame UBO created");
-}
-
-void updateFrameUBO(double deltaTime) {
+void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
     double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
     (void)elapsedTime;
 
     if (internalStateRenderer.camera.dirty) {
         internalStateRenderer.camera.dirty = true;
 
-        uint32_t sensitivity = 2;
-
-        if (platformInputIsKeyDown(KEY_i)) internalStateRenderer.camera.direction.z -= deltaTime * sensitivity;
-        if (platformInputIsKeyDown(KEY_o)) internalStateRenderer.camera.direction.z += deltaTime * sensitivity;
-
+        uint32_t sensitivity = 200;
         if (platformWindowIsFocused() && platformPointerIsLocked()) {
-            PointerInput pointerVector = platformInputPointerRelative();
-            internalStateRenderer.camera.direction.x += pointerVector.x / (float)internalStateRenderer.width * sensitivity;
-            internalStateRenderer.camera.direction.y -= pointerVector.y / (float)internalStateRenderer.height * sensitivity;
+            PointerInput pointerRelative = platformInputPointerRelative();
+            // rotation(euler angle): x = yaw, y = pitch, z = roll
+            internalStateRenderer.camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * sensitivity * deltaTime;
+            internalStateRenderer.camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * sensitivity * deltaTime;
+            internalStateRenderer.camera.rotation.x = fmodf(internalStateRenderer.camera.rotation.x, TO_RADIANS(360));
+            internalStateRenderer.camera.rotation.y = clamp(internalStateRenderer.camera.rotation.y, -1.5f, 1.5);
         }
 
-        // DEBUG("(%f, %f, %f)", internalStateRenderer.camera.direction.x, internalStateRenderer.camera.direction.y, internalStateRenderer.camera.direction.z);
-        
-        uint32_t cameraSpeed = 5;
-        if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.camera.position.z += -deltaTime * cameraSpeed;
-        if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.camera.position.z += deltaTime * cameraSpeed;
-        if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.camera.position.x += -deltaTime * cameraSpeed;
-        if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.camera.position.x += deltaTime * cameraSpeed;
-        if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.camera.position.y += deltaTime * cameraSpeed;
-        if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.camera.position.y += -deltaTime * cameraSpeed;
+        // vec3 front = mat4_mul_vec3(mat4_mul(mat4_rotation_y(TO_DEGREE(internalStateRenderer.camera.rotation.x)), mat4_rotation_x(TO_DEGREE(internalStateRenderer.camera.rotation.y))), FRONT_DIRECTION_EULER_ANGLE_YXZ_VEC3);
+        vec3 front = vec3_normalize((vec3){{-sinf(internalStateRenderer.camera.rotation.x)*cosf(internalStateRenderer.camera.rotation.y), sinf(internalStateRenderer.camera.rotation.y), -cosf(internalStateRenderer.camera.rotation.x)*cosf(internalStateRenderer.camera.rotation.y)}});
 
-        mat4 view = mat4_look(internalStateRenderer.camera.position, internalStateRenderer.camera.direction, internalStateRenderer.camera.up);
-        internalStateRenderer.camera.view = view;
-        internalStateRenderer.camera.projection = mat4_perspective(90, (float)internalStateRenderer.width / (float)internalStateRenderer.height, 0.1f, 100.0f);
+        uint32_t cameraMoveSpeed = 10;
+        vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
+        vec3 rightMoveAmount = vec3_scale(vec3_cross(front, UP_DIRECTION_VEC3), deltaTime * cameraMoveSpeed);
+        if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, forwardMoveAmount);
+        if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, vec3_neg(forwardMoveAmount));
+        if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, vec3_neg(rightMoveAmount));
+        if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, rightMoveAmount);
+        if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.camera.position.y += deltaTime * cameraMoveSpeed;
+        if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.camera.position.y -= deltaTime * cameraMoveSpeed;
+
+        internalStateRenderer.camera.view = mat4_view_YXZ(internalStateRenderer.camera.position, internalStateRenderer.camera.rotation);
+        internalStateRenderer.camera.projection = mat4_perspective(90, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 100.0f);
     }
     FrameUBO ubo = {
         .view = internalStateRenderer.camera.view,
         .projection = internalStateRenderer.camera.projection
     };
-    memcpy(internalStateRenderer.frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
+    memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
 }
 
 void rendererLoadMesh(Mesh* mesh) {
@@ -571,8 +525,7 @@ void rendererLoadImage(Image* image) {
 }
 void rendererLoadMaterial(Material* material, HashMap* images) {
     MaterialRendererState* materialRendererState = memalloc(sizeof(MaterialRendererState), MEMORY_TAG_RENDERER);
-
-    PipelineState* pipeline = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_MESH];
+    PipelineState* pipeline = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_DEFAULT];
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
@@ -623,7 +576,7 @@ void rendererLoadModel(Model* model) {
     TRACE("Load model");
 }
 
-void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageIndex, double deltaTime) {
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
@@ -646,8 +599,8 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)internalStateRenderer.width;
-    viewport.height = (float)internalStateRenderer.height;
+    viewport.width = (float)platformGetPlatformState()->width;
+    viewport.height = (float)platformGetPlatformState()->height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -657,7 +610,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     scissor.extent = internalStateRenderer.swapchainImageExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    enum PipelineType previousPipeline = PIPELINE_TYPE_MAX;
+    enum PipelineType previousPipelineType = PIPELINE_TYPE_MAX;
     Entity* entity;
     hashmap_foreach(internalStateRenderer.entities, entity) {
         Model* model = entity->modelRef;
@@ -665,20 +618,20 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
 
         PushConstant0 pushConstant0 = {};
         pushConstant0.model = entity->transform;
-        bool modelPushCostantPushed = false;
+
         Material* material;
         hashmap_foreach(model->materials, material) {
-            MaterialRendererState* materialRendererState = material->materialRendererStateRef;
-            PipelineState pipelineState = internalStateRenderer.pipelineStates[material->pipelineType];
-            if (previousPipeline != material->pipelineType) {
+            MaterialRendererState* materialRendererState = (MaterialRendererState*)material->materialRendererStateRef;
+            enum PipelineType currentPipelineType = material->pipelineType;
+            if (internalStateRenderer.useWireframe) currentPipelineType = PIPELINE_TYPE_WIREFRAME;
+            PipelineState pipelineState = internalStateRenderer.pipelineStates[currentPipelineType];
+            if (previousPipelineType != currentPipelineType) {
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
-                previousPipeline = material->pipelineType;
+                updateFrameUBO(&pipelineState, deltaTime);
+                previousPipelineType = currentPipelineType;
             }
-            if (!modelPushCostantPushed) {
-                vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
-            }
-
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
+            vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
 
             int meshCount = darray_get_length(material->meshes);
             for (int j = 0; j < meshCount; j++) {
@@ -688,8 +641,14 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState->vertexBuffer, offsets);
                 vkCmdBindIndexBuffer(commandBuffer, meshRendererState->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
-
+                switch (currentPipelineType) {
+                    case PIPELINE_TYPE_DEFAULT: {
+                        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
+                        break;
+                    }
+                    case PIPELINE_TYPE_WIREFRAME:
+                    case PIPELINE_TYPE_MAX: break;
+                }
                 vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh.indices), 1, 0, 0, 0);
             }
         }
@@ -714,8 +673,7 @@ void drawFrame(double deltaTime) {
     }
     vkResetFences(internalStateRenderer.device, 1, &internalStateRenderer.inFlightFences[internalStateRenderer.currentFrame]);
     vkResetCommandBuffer(internalStateRenderer.commandBuffers[internalStateRenderer.currentFrame], 0);
-    updateFrameUBO(deltaTime);
-    recordCommandBuffer(internalStateRenderer.commandBuffers[internalStateRenderer.currentFrame], imageIndex);
+    recordCommandBuffer(internalStateRenderer.commandBuffers[internalStateRenderer.currentFrame], imageIndex, deltaTime);
     VkPipelineStageFlags waitStage[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -772,8 +730,8 @@ void mainLoop() {
 }
 
 void vulkanRendererInitialize() {
-    internalStateRenderer.width = platformGetPlatformState()->width;
-    internalStateRenderer.height = platformGetPlatformState()->height;
+    platformGetPlatformState()->width = platformGetPlatformState()->width;
+    platformGetPlatformState()->height = platformGetPlatformState()->height;
     internalStateRenderer.startTime = platformGetTime();
     internalStateRenderer.targetFrameTime = 1 / 60.0;
     internalStateRenderer.entities = hashmap_create(1000);
@@ -792,11 +750,9 @@ void vulkanRendererInitialize() {
     createDepthResources();
     createFramebuffers();
     createSyncObjects();
-
-    createCommonPipelines(internalStateRenderer, &internalStateRenderer.pipelineStates);
     createDescriptorPool();
 
-    createFrameUBO();
+    createCommonPipelines(internalStateRenderer, &internalStateRenderer.pipelineStates);
     createTextureSampler(internalStateRenderer, &internalStateRenderer.textureSampler);
 }
 

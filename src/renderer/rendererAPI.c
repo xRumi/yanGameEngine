@@ -9,8 +9,7 @@ void rendererSetFPS(double fps) {
 void rendererCameraReset() {
     internalStateRenderer.camera = (Camera){
         .position = {{0, 0, 0}},
-        .direction = {{0, 0, -1}},
-        .up = {{0, 1, 0}},
+        .sensitivity = 200,
         .dirty = true
     };
 }
@@ -21,4 +20,14 @@ void rendererCameraSetPosition(vec3 position) {
 }
 void rendererAddEntity(Entity* entity) {
     hashmap_put(internalStateRenderer.entities, entity->id, (uint64_t)entity);
+}
+
+void rendererEnableWireframe() {
+    internalStateRenderer.useWireframe = true;
+}
+void rendererDisableWireframe() {
+    internalStateRenderer.useWireframe = false;
+}
+void rendererWireframeToggle() {
+    internalStateRenderer.useWireframe ^= true;
 }

@@ -55,8 +55,8 @@ typedef struct FrameUBO {
 
 typedef struct Camera {
     vec3 position;
-    vec3 direction;
-    vec3 up;
+    vec3 rotation;
+    float sensitivity;
     bool dirty;
     mat4 view, projection;
 } Camera;
@@ -70,10 +70,13 @@ typedef struct PipelineState {
     VkPipelineLayout pipelineLayout;
     VkDescriptorSetLayout* descriptorSetLayouts;
     VkDescriptorSet* descriptorSets;
+
+    VkBuffer* frameUBO;
+    VkDeviceMemory* frameUBOMemory;
+    void** frameUBOMapped;
 } PipelineState;
 
 typedef struct RendererState {
-    uint32_t height, width;
     VkInstance instance;
     VkSurfaceKHR surface;
     VkPhysicalDevice physicalDevice;
@@ -116,10 +119,7 @@ typedef struct RendererState {
 
     Camera camera;
 
-    VkBuffer* frameUBO;
-    VkDeviceMemory* frameUBOMemory;
-    void** frameUBOMapped;
-
+    bool useWireframe;
     PipelineState* pipelineStates;
     VkSampler textureSampler;
 
@@ -167,3 +167,4 @@ typedef struct PipelineOptions {
 
 void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline* pipeline, VkPipelineLayout* pipelineLayout);
 void createCommonPipelines(RendererState internalStateRenderer, PipelineState** pipelineStates);
+void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipeline);
