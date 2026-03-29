@@ -15,7 +15,12 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Grid"
+			"name":"Grid",
+			"translation":[
+				-0.004647731781005859,
+				0.33657342195510864,
+				-0.15559345483779907
+			]
 		}
 	],
 	"meshes":[
@@ -37,7 +42,7 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":23268,
+			"count":23288,
 			"max":[
 				50,
 				20.061410903930664,
@@ -53,51 +58,51 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":23268,
+			"count":23288,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":23268,
+			"count":23288,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":125028,
+			"count":125052,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":279216,
+			"byteLength":279456,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":279216,
-			"byteOffset":279216,
+			"byteLength":279456,
+			"byteOffset":279456,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":186144,
-			"byteOffset":558432,
+			"byteLength":186304,
+			"byteOffset":558912,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":250056,
-			"byteOffset":744576,
+			"byteLength":250104,
+			"byteOffset":745216,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":994632,
+			"byteLength":995320,
 			"uri":"terrain.bin"
 		}
 	]
