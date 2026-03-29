@@ -140,21 +140,20 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)internalStateRenderer.width;
-    viewport.height = (float)internalStateRenderer.height;
+    viewport.width = (float)platformGetPlatformState()->width;
+    viewport.height = (float)platformGetPlatformState()->height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent = (VkExtent2D){.width = internalStateRenderer.width, .height = internalStateRenderer.height};
+    scissor.extent = (VkExtent2D){.width = platformGetPlatformState()->width, .height = platformGetPlatformState()->height};
 
     for (int i = 0; i < PIPELINE_TYPE_MAX; i++)
         switch (i) {
-            case PIPELINE_TYPE_MESH: {
-                // create mesh pipeline
-
+            case PIPELINE_TYPE_DEFAULT: {
+                // create default pipeline
                 PipelineState* pipeline = &(*pipelineStates)[i];
 
                 VkVertexInputBindingDescription* vertexInputBindings = darray_create_reserve(VkVertexInputBindingDescription, 1);
@@ -218,13 +217,13 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     FATAL("Failed to create descriptor set layout");
                 }
 
-                pipeline->descriptorSetLayouts = darray_create_reserve(VkDescriptorSetLayout, 2);
-                pipeline->descriptorSetLayouts[0] = set_0_layout;
-                pipeline->descriptorSetLayouts[1] = set_1_layout;
+                pipeline->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
+                darray_push(pipeline->descriptorSetLayouts, set_0_layout);
+                darray_push(pipeline->descriptorSetLayouts, set_1_layout);
 
                 PipelineOptions options = {
-                    .vertShaderPath = "assets/shaders/mesh.vert.spv",
-                    .fragShaderPath = "assets/shaders/mesh.frag.spv",
+                    .vertShaderPath = "assets/shaders/spv/default.vert.spv",
+                    .fragShaderPath = "assets/shaders/spv/default.frag.spv",
                     .vertexBindingDescriptions = vertexInputBindings,
                     .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
                     .descriptorSetLayouts = pipeline->descriptorSetLayouts,
@@ -239,13 +238,137 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     .renderPass = internalStateRenderer.renderPass,
                 };
                 createGraphicsPipline(internalStateRenderer.device, options, &pipeline->pipeline, &pipeline->pipelineLayout);
-                TRACE("Mesh graphics pipeline created");
+                createPipelineFrameUBO(internalStateRenderer, pipeline);
+                TRACE("Default graphics pipeline created");
 
                 darray_destroy(vertexInputBindings);
                 darray_destroy(vertexInputAttributeDescriptions);
                 darray_destroy(set_0_layoutBindings);
+                darray_destroy(set_1_layoutBindings);
+                break;
+            }
+            case PIPELINE_TYPE_WIREFRAME: {
+                // create wireframe pipeline
+                PipelineState* pipeline = &(*pipelineStates)[i];
 
+                VkVertexInputBindingDescription* vertexInputBindings = darray_create_reserve(VkVertexInputBindingDescription, 1);
+                vertexInputBindings[0].binding = 0;
+                vertexInputBindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+                vertexInputBindings[0].stride = sizeof(Vertex);
+
+                VkVertexInputAttributeDescription* vertexInputAttributeDescriptions = darray_create_reserve(VkVertexInputAttributeDescription, 5);
+                vertexInputAttributeDescriptions[0].binding = 0;
+                vertexInputAttributeDescriptions[0].location = 0;
+                vertexInputAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+                vertexInputAttributeDescriptions[0].offset = offsetof(Vertex, position);
+
+                vertexInputAttributeDescriptions[1].binding = 0;
+                vertexInputAttributeDescriptions[1].location = 1;
+                vertexInputAttributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                vertexInputAttributeDescriptions[1].offset = offsetof(Vertex, color);
+
+                vertexInputAttributeDescriptions[2].binding = 0;
+                vertexInputAttributeDescriptions[2].location = 2;
+                vertexInputAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+                vertexInputAttributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
+                vertexInputAttributeDescriptions[3].binding = 0;
+                vertexInputAttributeDescriptions[3].location = 3;
+                vertexInputAttributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+                vertexInputAttributeDescriptions[3].offset = offsetof(Vertex, normal);
+
+                vertexInputAttributeDescriptions[4].binding = 0;
+                vertexInputAttributeDescriptions[4].location = 4;
+                vertexInputAttributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                vertexInputAttributeDescriptions[4].offset = offsetof(Vertex, tangent);
+
+                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 1);
+                set_0_layoutBindings[0].binding = 0;
+                set_0_layoutBindings[0].descriptorCount = 1;
+                set_0_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+                VkDescriptorSetLayoutCreateInfo set_0_layoutCreateInfo = {};
+                set_0_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                set_0_layoutCreateInfo.bindingCount = darray_get_length(set_0_layoutBindings);
+                set_0_layoutCreateInfo.pBindings = set_0_layoutBindings;
+                VkDescriptorSetLayout set_0_layout;
+                if (vkCreateDescriptorSetLayout(internalStateRenderer.device, &set_0_layoutCreateInfo, NULL, &set_0_layout) != VK_SUCCESS) {
+                    FATAL("Failed to create descriptor set layout");
+                }
+
+                pipeline->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
+                darray_push(pipeline->descriptorSetLayouts, set_0_layout);
+
+                PipelineOptions options = {
+                    .vertShaderPath = "assets/shaders/spv/wireframe.vert.spv",
+                    .fragShaderPath = "assets/shaders/spv/wireframe.frag.spv",
+                    .vertexBindingDescriptions = vertexInputBindings,
+                    .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
+                    .descriptorSetLayouts = pipeline->descriptorSetLayouts,
+                    .viewport = viewport,
+                    .scissor = scissor,
+                    .cullMode = VK_CULL_MODE_NONE,
+                    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    .polygonMode = VK_POLYGON_MODE_LINE,
+                    .depthTestEnable = VK_TRUE,
+                    .blendEnable = VK_FALSE,
+                    .rasterizationSamples = internalStateRenderer.msaaSamples,
+                    .renderPass = internalStateRenderer.renderPass,
+                };
+                createGraphicsPipline(internalStateRenderer.device, options, &pipeline->pipeline, &pipeline->pipelineLayout);
+                createPipelineFrameUBO(internalStateRenderer, pipeline);
+                TRACE("Wireframe graphics pipeline created");
+
+                darray_destroy(vertexInputBindings);
+                darray_destroy(vertexInputAttributeDescriptions);
+                darray_destroy(set_0_layoutBindings);
                 break;
             }
         }
+}
+
+void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipeline) {
+    VkDeviceSize bufferSize = sizeof(FrameUBO);
+
+    pipeline->frameUBO = darray_create_reserve(FrameUBO, MAX_FRAMES_IN_FLIGHT);
+    pipeline->frameUBOMemory = darray_create_reserve(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
+    pipeline->frameUBOMapped = darray_create_reserve(void*, MAX_FRAMES_IN_FLIGHT);
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        createBuffer(internalStateRenderer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pipeline->frameUBO[i], &pipeline->frameUBOMemory[i]);
+        vkMapMemory(internalStateRenderer.device, pipeline->frameUBOMemory[i], 0, bufferSize, 0, &pipeline->frameUBOMapped[i]);
+    }
+
+    VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {};
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipeline->descriptorSetLayouts[0];
+    pipeline->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
+    allocInfo.pSetLayouts = layouts;
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+    if (vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, pipeline->descriptorSets) != VK_SUCCESS) {
+        FATAL("Failed to allocate descriptor sets");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkWriteDescriptorSet writeDescriptors[1] = {};
+
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = pipeline->frameUBO[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(FrameUBO);
+
+        writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptors[0].descriptorCount = 1;
+        writeDescriptors[0].dstSet = pipeline->descriptorSets[i];
+        writeDescriptors[0].pBufferInfo = &bufferInfo;
+        writeDescriptors[0].dstBinding = 0;
+        writeDescriptors[0].dstArrayElement = 0;
+
+        vkUpdateDescriptorSets(internalStateRenderer.device, 1, writeDescriptors, 0, NULL);
+    }
 }
