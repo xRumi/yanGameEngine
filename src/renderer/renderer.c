@@ -492,7 +492,7 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
 
         uint32_t cameraMoveSpeed = 10;
         vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
-        vec3 rightMoveAmount = vec3_scale(vec3_cross(front, UP_DIRECTION_VEC3), deltaTime * cameraMoveSpeed);
+        vec3 rightMoveAmount = vec3_scale(vec3_normalize(vec3_cross(front, UP_DIRECTION_VEC3)), deltaTime * cameraMoveSpeed);
         if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, forwardMoveAmount);
         if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, vec3_neg(forwardMoveAmount));
         if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, vec3_neg(rightMoveAmount));
@@ -501,7 +501,7 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
         if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.camera.position.y -= deltaTime * cameraMoveSpeed;
 
         internalStateRenderer.camera.view = mat4_view_YXZ(internalStateRenderer.camera.position, internalStateRenderer.camera.rotation);
-        internalStateRenderer.camera.projection = mat4_perspective(90, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 100.0f);
+        internalStateRenderer.camera.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
     }
     FrameUBO ubo = {
         .view = internalStateRenderer.camera.view,
@@ -613,7 +613,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     enum PipelineType previousPipelineType = PIPELINE_TYPE_MAX;
     Entity* entity;
     hashmap_foreach(internalStateRenderer.entities, entity) {
-        Model* model = entity->modelRef;
+        Model* model = entity->model;
         if (!model->rendererLoaded) rendererLoadModel(model);
 
         PushConstant0 pushConstant0 = {};

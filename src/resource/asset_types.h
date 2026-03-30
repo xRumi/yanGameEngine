@@ -65,6 +65,6 @@ typedef struct Model {
 
 typedef struct Entity {
     uint64_t id;
-    Model* modelRef;
+    Model* model;
     mat4 transform;
 } Entity;

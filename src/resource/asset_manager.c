@@ -5,7 +5,7 @@ uint64_t assetManagerEntityId = 1;
 Entity* entityCreate(Model* model) {
     Entity* entity = memalloc(sizeof(Entity), MEMORY_TAG_ENTITY);
     entity->id = assetManagerEntityId++;
-    entity->modelRef = model;
+    entity->model = model;
     entity->transform = mat4_identity();
     return entity;
 }

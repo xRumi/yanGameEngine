@@ -21,7 +21,7 @@ int main() {
     rendererAddEntity(box2);
     rendererAddEntity(terrain);
 
-    rendererCameraSetPosition((vec3){{0, -3, 0}});
+    rendererCameraSetPosition((vec3){{0, -6, 0}});
 
     bool locked = false;
     PassiveDelay lockKey = passiveDelaySet(0.5);
@@ -50,11 +50,11 @@ int main() {
         }
 
         entityResetTransform(box1);
-        entityApplyTransform(box1, mat4_translation(0, 0, 0));
+        entityApplyTransform(box1, mat4_translation(-1, 0, 0));
         entityApplyTransform(box1, mat4_mul(mat4_rotation_x(35 * elapsedTime), mat4_rotation_y(35 * elapsedTime)));
 
         entityResetTransform(box2);
-        entityApplyTransform(box2, mat4_translation(0, 0, 0));
+        entityApplyTransform(box2, mat4_translation(1, 0, 0));
         entityApplyTransform(box2, mat4_mul(mat4_rotation_x(85 * elapsedTime), mat4_rotation_y(85 * elapsedTime)));
 
         entityResetTransform(terrain);
