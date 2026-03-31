@@ -132,11 +132,11 @@ mat4 mat4_mul(mat4 a, mat4 b) {
     mat4 ret = {};
     for (int col = 0; col < 4; col++)
         for (int row = 0; row < 4; row++)
-            ret.ele[col*4 + row] =
-                a.ele[0*4 + row] * b.ele[col*4 + 0] +
-                a.ele[1*4 + row] * b.ele[col*4 + 1] +
-                a.ele[2*4 + row] * b.ele[col*4 + 2] +
-                a.ele[3*4 + row] * b.ele[col*4 + 3];
+            ret.e[col][row] =
+                a.e[0][row] * b.e[col][0] +
+                a.e[1][row] * b.e[col][1] +
+                a.e[2][row] * b.e[col][2] +
+                a.e[3][row] * b.e[col][3];
     return ret;
 }
 vec4 mat4_mul_vec4(mat4 m, vec4 v) {

@@ -5,7 +5,6 @@ const char* memory_tag_strings[] = {
 };
 
 struct {
-    uint64_t totalAllocated;
     uint64_t taggedAllocation[MEMORY_TAG_MAX];
 } internalStateMemory;
 
@@ -13,14 +12,14 @@ struct {
 char memory_usage_str[memory_usage_str_length];
 
 void* memalloc(uint64_t size, MemoryTag tag) {
-    internalStateMemory.totalAllocated += size;
+    internalStateMemory.taggedAllocation[MEMORY_TOTAL_ALLOCATED] += size;
     internalStateMemory.taggedAllocation[tag] += size;
     void* mem = malloc(size); // TODO: add alignment or maybe some new system
     memset(mem, 0, size);
     return mem;
 };
 void memfree(void* mem, uint64_t size, MemoryTag tag) {
-    internalStateMemory.totalAllocated -= size;
+    internalStateMemory.taggedAllocation[MEMORY_TOTAL_ALLOCATED] -= size;
     internalStateMemory.taggedAllocation[tag] -= size;
     free(mem);
 };
@@ -37,7 +36,7 @@ const char* get_memory_usage_str() {
         size %= 1024 * 1024;
         int KiB = size / 1024;
         size %= 1024;
-        offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, "\t%s =", memory_tag_strings[i]);
+        offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, "\t%-35s", memory_tag_strings[i]);
         if (GiB) offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %d GiB,", GiB);
         if (MiB) offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %d MiB,", MiB);
         if (KiB) offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %d KiB,", KiB);
