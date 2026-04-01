@@ -10,7 +10,7 @@ int main() {
     engineInitialize("yanGameEngine - Triangle", 0, 0, width, height);
     rendererSetFPS(144);
 
-    Model* boxModel = modelCreate("./assets/world/models/BoxTextured", "BoxTextured.gltf");
+    Model* boxModel = modelCreate("./assets/world/models/Cube", "Cube.gltf");
     Model* terrainModel = modelCreate("./assets/world/", "terrain.gltf");
 
     Entity* box1 = entityCreate(boxModel);
@@ -50,11 +50,10 @@ int main() {
         }
 
         entityResetTransform(box1);
-        entityApplyTransform(box1, mat4_translation(-1, 0, 0));
-        entityApplyTransform(box1, mat4_mul(mat4_rotation_x(35 * elapsedTime), mat4_rotation_y(35 * elapsedTime)));
+        entityApplyTransform(box1, mat4_translation(-1.5, 0, 0));
 
         entityResetTransform(box2);
-        entityApplyTransform(box2, mat4_translation(1, 0, 0));
+        entityApplyTransform(box2, mat4_translation(1.5, 0, 0));
         entityApplyTransform(box2, mat4_mul(mat4_rotation_x(85 * elapsedTime), mat4_rotation_y(85 * elapsedTime)));
 
         entityResetTransform(terrain);

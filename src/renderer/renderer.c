@@ -458,7 +458,7 @@ void createDescriptorPool() {
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
+    poolSizes[1].descriptorCount = (4) * MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
     descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -515,7 +515,6 @@ void rendererLoadMesh(Mesh* mesh) {
     createVertexBuffer(internalStateRenderer, mesh->vertices, &meshRendererState->vertexBuffer, &meshRendererState->vertexBufferMemory);
     createIndexBuffer(internalStateRenderer, mesh->indices, &meshRendererState->indexBuffer, &meshRendererState->indexBufferMemory);
     mesh->meshRendererStateRef = meshRendererState;
-    TRACE("Load mesh");
 }
 void rendererLoadImage(Image* image) {
     ImageRendererState* imageRendererState = memalloc(sizeof(ImageRendererState), MEMORY_TAG_RENDERER);
@@ -523,35 +522,58 @@ void rendererLoadImage(Image* image) {
     createTextureImage(internalStateRenderer, image->data, image->width, image->height, imageRendererState->mipLevels, &imageRendererState->textureImage, &imageRendererState->textureImageView, &imageRendererState->textureImageMemory);
     image->imageRendererStateRef = imageRendererState;
 }
-void rendererLoadMaterial(Material* material, HashMap* images) {
+void rendererLoadMaterial(Material* material) {
     MaterialRendererState* materialRendererState = memalloc(sizeof(MaterialRendererState), MEMORY_TAG_RENDERER);
-    PipelineState* pipeline = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_DEFAULT];
+    PipelineState* pipelineState = &internalStateRenderer.pipelineStates[PIPELINE_TYPE_DEFAULT];
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
-    allocInfo.pSetLayouts = &pipeline->descriptorSetLayouts[1];
+    allocInfo.pSetLayouts = &pipelineState->descriptorSetLayouts[1];
     allocInfo.descriptorSetCount = 1;
     VkResult f = vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, &materialRendererState->descriptorSet);
     if (f != VK_SUCCESS) {
         FATAL("Failed to allocate material descriptor sets");
     }
-    VkWriteDescriptorSet writeDescriptors[1] = {};
+    VkWriteDescriptorSet writeDescriptors[3] = {};
 
-    {
-        ImageRendererState* imageRendererState = material->baseColor.image->imageRendererStateRef;
-        VkDescriptorImageInfo imageInfo = {};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = imageRendererState->textureImageView;
-        imageInfo.sampler = internalStateRenderer.textureSampler;
+    ImageRendererState* baseColorImageRendererState = material->baseColor.image->imageRendererStateRef;
+    VkDescriptorImageInfo baseColorImageInfo = {};
+    baseColorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    baseColorImageInfo.imageView = baseColorImageRendererState->textureImageView;
+    baseColorImageInfo.sampler = internalStateRenderer.textureSampler;
+    writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptors[0].descriptorCount = 1;
+    writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptors[0].dstSet = materialRendererState->descriptorSet;
+    writeDescriptors[0].pImageInfo = &baseColorImageInfo;
+    writeDescriptors[0].dstBinding = 0;
+    writeDescriptors[0].dstArrayElement = 0;
 
-        writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptors[0].descriptorCount = 1;
-        writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptors[0].dstSet = materialRendererState->descriptorSet;
-        writeDescriptors[0].pImageInfo = &imageInfo;
-        writeDescriptors[0].dstBinding = 0;
-        writeDescriptors[0].dstArrayElement = 0;
-    }
+    ImageRendererState* normalImageRendererState = material->metallicRoughness.image->imageRendererStateRef;
+    VkDescriptorImageInfo normalImageInfo = {};
+    normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    normalImageInfo.imageView = normalImageRendererState->textureImageView;
+    normalImageInfo.sampler = internalStateRenderer.textureSampler;
+    writeDescriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptors[1].descriptorCount = 1;
+    writeDescriptors[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptors[1].dstSet = materialRendererState->descriptorSet;
+    writeDescriptors[1].pImageInfo = &normalImageInfo;
+    writeDescriptors[1].dstBinding = 1;
+    writeDescriptors[1].dstArrayElement = 0;
+
+    ImageRendererState* metallicRoughnessImageRendererState = material->metallicRoughness.image->imageRendererStateRef;
+    VkDescriptorImageInfo metallicRoughnessImageInfo = {};
+    metallicRoughnessImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    metallicRoughnessImageInfo.imageView = metallicRoughnessImageRendererState->textureImageView;
+    metallicRoughnessImageInfo.sampler = internalStateRenderer.textureSampler;
+    writeDescriptors[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptors[2].descriptorCount = 1;
+    writeDescriptors[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptors[2].dstSet = materialRendererState->descriptorSet;
+    writeDescriptors[2].pImageInfo = &metallicRoughnessImageInfo;
+    writeDescriptors[2].dstBinding = 2;
+    writeDescriptors[2].dstArrayElement = 0;
 
     vkUpdateDescriptorSets(internalStateRenderer.device, CARRAY_SIZE(writeDescriptors), writeDescriptors, 0, NULL);
 
@@ -565,7 +587,7 @@ void rendererLoadModel(Model* model) {
     }
     Material* material;
     hashmap_foreach(model->materials, material) {
-        rendererLoadMaterial(material, model->images);
+        rendererLoadMaterial(material);
         int meshCount = darray_get_length(material->meshes);
         for (int i = 0; i < meshCount; i++) {
             Mesh* mesh = &material->meshes[i];
@@ -573,7 +595,7 @@ void rendererLoadModel(Model* model) {
         }
     }
     model->rendererLoaded = true;
-    TRACE("Load model");
+    TRACE(ANSI_COLOR_MAGENTA "\b[RENDERER]" ANSI_RESET_ALL " Model \"%s\" loaded", model->name);
 }
 
 void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageIndex, double deltaTime) {

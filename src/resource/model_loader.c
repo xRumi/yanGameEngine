@@ -67,14 +67,14 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                     break;
                 }
                 case cgltf_attribute_type_color: {
-                    vec4 color = { {0, 0, 0, 1} };
+                    vec4 color = {{0, 0, 0, 1}};
                     memcpy(&color, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].color = color;
                     break;
                 }
                 case cgltf_attribute_type_texcoord: {
-                    vec2 texCoord = { {0, 0} };
-                    memcpy(&texCoord, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
+                    vec2 texCoord = {};
+                    memcpy(&texCoord, data + offset + stride * j, sizeof(vec2));
                     vertices[j].texCoord = texCoord;
                     break;
                 }
@@ -82,6 +82,12 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                     vec3 normal = {};
                     memcpy(&normal, data + offset + stride * j, sizeof(vec3));
                     vertices[j].normal = normal;
+                    break;
+                }
+                case cgltf_attribute_type_tangent: {
+                    vec4 tangent = {{0, 0, 0, 1}};
+                    memcpy(&tangent, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
+                    vertices[j].tangent = tangent;
                     break;
                 }
                 default: {
@@ -138,6 +144,8 @@ HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCo
 Material* create_default_material(HashMap* images) {
     Material* ret = memalloc(sizeof(Material), MEMORY_TAG_MODEL_LOADER);
     ret->baseColor.image = (Image*)hashmap_get(images, hash_string("__baseColor255"));
+    ret->normal.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
+    ret->metallicRoughness.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
     ret->pipelineType = PIPELINE_TYPE_DEFAULT;
     ret->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_MODEL_LOADER);
     return ret;
@@ -148,9 +156,12 @@ HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, H
     hashmap_put(materials, 0, (uint64_t)create_default_material(images));
     for (int i = 0; i < materialCount; i++) {
         Material* material = create_default_material(images);
-        if (gltf_material[i].pbr_metallic_roughness.base_color_texture.texture) {
+        if (gltf_material[i].pbr_metallic_roughness.base_color_texture.texture)
             material->baseColor.image = (Image*)hashmap_get(images, hash_string(gltf_material[i].pbr_metallic_roughness.base_color_texture.texture->image->uri));
-        }
+        if (gltf_material[i].normal_texture.texture)
+            material->normal.image = (Image*)hashmap_get(images, hash_string(gltf_material[i].normal_texture.texture->image->uri));
+        if (gltf_material[i].pbr_metallic_roughness.metallic_roughness_texture.texture)
+            material->metallicRoughness.image = (Image*)hashmap_get(images, hash_string(gltf_material[i].pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri));
         hashmap_put(materials, (uint64_t)&gltf_material[i], (uint64_t)material);
     }
     return materials;
@@ -171,6 +182,7 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
     }
 
     Model* model = memalloc(sizeof(Model), MEMORY_TAG_MODEL_LOADER);
+    model->name = gltf_file;
     model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
     model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
 

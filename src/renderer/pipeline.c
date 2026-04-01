@@ -154,7 +154,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
         switch (i) {
             case PIPELINE_TYPE_DEFAULT: {
                 // create default pipeline
-                PipelineState* pipeline = &(*pipelineStates)[i];
+                PipelineState* pipelineState = &(*pipelineStates)[i];
 
                 VkVertexInputBindingDescription* vertexInputBindings = darray_create_reserve(VkVertexInputBindingDescription, 1);
                 vertexInputBindings[0].binding = 0;
@@ -202,11 +202,21 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     FATAL("Failed to create descriptor set layout");
                 }
 
-                VkDescriptorSetLayoutBinding* set_1_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 1);
+                VkDescriptorSetLayoutBinding* set_1_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 3);
                 set_1_layoutBindings[0].binding = 0;
                 set_1_layoutBindings[0].descriptorCount = 1;
                 set_1_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 set_1_layoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+                set_1_layoutBindings[1].binding = 1;
+                set_1_layoutBindings[1].descriptorCount = 1;
+                set_1_layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                set_1_layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+                set_1_layoutBindings[2].binding = 2;
+                set_1_layoutBindings[2].descriptorCount = 1;
+                set_1_layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                set_1_layoutBindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
                 VkDescriptorSetLayoutCreateInfo set_1_layoutCreateInfo = {};
                 set_1_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -217,16 +227,16 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     FATAL("Failed to create descriptor set layout");
                 }
 
-                pipeline->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
-                darray_push(pipeline->descriptorSetLayouts, set_0_layout);
-                darray_push(pipeline->descriptorSetLayouts, set_1_layout);
+                pipelineState->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
+                darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
+                darray_push(pipelineState->descriptorSetLayouts, set_1_layout);
 
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/default.vert.spv",
                     .fragShaderPath = "assets/shaders/spv/default.frag.spv",
                     .vertexBindingDescriptions = vertexInputBindings,
                     .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
-                    .descriptorSetLayouts = pipeline->descriptorSetLayouts,
+                    .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
                     .viewport = viewport,
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_BACK_BIT,
@@ -237,8 +247,8 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     .rasterizationSamples = internalStateRenderer.msaaSamples,
                     .renderPass = internalStateRenderer.renderPass,
                 };
-                createGraphicsPipline(internalStateRenderer.device, options, &pipeline->pipeline, &pipeline->pipelineLayout);
-                createPipelineFrameUBO(internalStateRenderer, pipeline);
+                createGraphicsPipline(internalStateRenderer.device, options, &pipelineState->pipeline, &pipelineState->pipelineLayout);
+                createPipelineFrameUBO(internalStateRenderer, pipelineState);
                 TRACE("Default graphics pipeline created");
 
                 darray_destroy(vertexInputBindings);
@@ -249,7 +259,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
             }
             case PIPELINE_TYPE_WIREFRAME: {
                 // create wireframe pipeline
-                PipelineState* pipeline = &(*pipelineStates)[i];
+                PipelineState* pipelineState = &(*pipelineStates)[i];
 
                 VkVertexInputBindingDescription* vertexInputBindings = darray_create_reserve(VkVertexInputBindingDescription, 1);
                 vertexInputBindings[0].binding = 0;
@@ -297,15 +307,15 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     FATAL("Failed to create descriptor set layout");
                 }
 
-                pipeline->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
-                darray_push(pipeline->descriptorSetLayouts, set_0_layout);
+                pipelineState->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
+                darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
 
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/wireframe.vert.spv",
                     .fragShaderPath = "assets/shaders/spv/wireframe.frag.spv",
                     .vertexBindingDescriptions = vertexInputBindings,
                     .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
-                    .descriptorSetLayouts = pipeline->descriptorSetLayouts,
+                    .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
                     .viewport = viewport,
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_NONE,
@@ -316,8 +326,8 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     .rasterizationSamples = internalStateRenderer.msaaSamples,
                     .renderPass = internalStateRenderer.renderPass,
                 };
-                createGraphicsPipline(internalStateRenderer.device, options, &pipeline->pipeline, &pipeline->pipelineLayout);
-                createPipelineFrameUBO(internalStateRenderer, pipeline);
+                createGraphicsPipline(internalStateRenderer.device, options, &pipelineState->pipeline, &pipelineState->pipelineLayout);
+                createPipelineFrameUBO(internalStateRenderer, pipelineState);
                 TRACE("Wireframe graphics pipeline created");
 
                 darray_destroy(vertexInputBindings);

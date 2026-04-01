@@ -58,9 +58,10 @@ typedef struct Material {
 } Material;
 
 typedef struct Model {
-    bool rendererLoaded;
+    const char* name;
     HashMap* images;
     HashMap* materials;
+    bool rendererLoaded;
 } Model;
 
 typedef struct Entity {
