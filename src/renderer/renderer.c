@@ -474,38 +474,35 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
     double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
     (void)elapsedTime;
 
-    if (internalStateRenderer.camera.dirty) {
-        internalStateRenderer.camera.dirty = true;
 
-        uint32_t sensitivity = 200;
-        if (platformWindowIsFocused() && platformPointerIsLocked()) {
-            PointerInput pointerRelative = platformInputPointerRelative();
-            // rotation(euler angle): x = yaw, y = pitch, z = roll
-            internalStateRenderer.camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * sensitivity * deltaTime;
-            internalStateRenderer.camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * sensitivity * deltaTime;
-            internalStateRenderer.camera.rotation.x = fmodf(internalStateRenderer.camera.rotation.x, TO_RADIANS(360));
-            internalStateRenderer.camera.rotation.y = clamp(internalStateRenderer.camera.rotation.y, -1.5f, 1.5);
-        }
-
-        // vec3 front = mat4_mul_vec3(mat4_mul(mat4_rotation_y(TO_DEGREE(internalStateRenderer.camera.rotation.x)), mat4_rotation_x(TO_DEGREE(internalStateRenderer.camera.rotation.y))), FRONT_DIRECTION_EULER_ANGLE_YXZ_VEC3);
-        vec3 front = vec3_normalize((vec3){{-sinf(internalStateRenderer.camera.rotation.x)*cosf(internalStateRenderer.camera.rotation.y), sinf(internalStateRenderer.camera.rotation.y), -cosf(internalStateRenderer.camera.rotation.x)*cosf(internalStateRenderer.camera.rotation.y)}});
-
-        uint32_t cameraMoveSpeed = 10;
-        vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
-        vec3 rightMoveAmount = vec3_scale(vec3_normalize(vec3_cross(front, UP_DIRECTION_VEC3)), deltaTime * cameraMoveSpeed);
-        if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, forwardMoveAmount);
-        if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, vec3_neg(forwardMoveAmount));
-        if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, vec3_neg(rightMoveAmount));
-        if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.camera.position = vec3_add(internalStateRenderer.camera.position, rightMoveAmount);
-        if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.camera.position.y += deltaTime * cameraMoveSpeed;
-        if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.camera.position.y -= deltaTime * cameraMoveSpeed;
-
-        internalStateRenderer.camera.view = mat4_view_YXZ(internalStateRenderer.camera.position, internalStateRenderer.camera.rotation);
-        internalStateRenderer.camera.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
+    uint32_t sensitivity = 200;
+    if (platformWindowIsFocused() && platformPointerIsLocked()) {
+        PointerInput pointerRelative = platformInputPointerRelative();
+        // rotation(euler angle): x = yaw, y = pitch, z = roll
+        internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * sensitivity * deltaTime;
+        internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * sensitivity * deltaTime;
+        internalStateRenderer.scene->camera.rotation.x = fmodf(internalStateRenderer.scene->camera.rotation.x, TO_RADIANS(360));
+        internalStateRenderer.scene->camera.rotation.y = clamp(internalStateRenderer.scene->camera.rotation.y, -1.5f, 1.5);
     }
+
+    vec3 front = vec3_normalize((vec3){{-sinf(internalStateRenderer.scene->camera.rotation.x)*cosf(internalStateRenderer.scene->camera.rotation.y), sinf(internalStateRenderer.scene->camera.rotation.y), -cosf(internalStateRenderer.scene->camera.rotation.x)*cosf(internalStateRenderer.scene->camera.rotation.y)}});
+
+    uint32_t cameraMoveSpeed = 10;
+    vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
+    vec3 rightMoveAmount = vec3_scale(vec3_normalize(vec3_cross(front, UP_DIRECTION_VEC3)), deltaTime * cameraMoveSpeed);
+    if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, forwardMoveAmount);
+    if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(forwardMoveAmount));
+    if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(rightMoveAmount));
+    if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, rightMoveAmount);
+    if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.scene->camera.position.y += deltaTime * cameraMoveSpeed;
+    if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.scene->camera.position.y -= deltaTime * cameraMoveSpeed;
+
+    internalStateRenderer.scene->camera.view = mat4_view_YXZ(internalStateRenderer.scene->camera.position, internalStateRenderer.scene->camera.rotation);
+    internalStateRenderer.scene->camera.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
+    
     FrameUBO ubo = {
-        .view = internalStateRenderer.camera.view,
-        .projection = internalStateRenderer.camera.projection
+        .view = internalStateRenderer.scene->camera.view,
+        .projection = internalStateRenderer.scene->camera.projection
     };
     memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
 }
@@ -634,7 +631,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
 
     enum PipelineType previousPipelineType = PIPELINE_TYPE_MAX;
     Entity* entity;
-    hashmap_foreach(internalStateRenderer.entities, entity) {
+    hashmap_foreach(internalStateRenderer.scene->entities, entity) {
         Model* model = entity->model;
         if (!model->rendererLoaded) rendererLoadModel(model);
 
@@ -741,7 +738,7 @@ void mainLoop() {
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
-        drawFrame(deltaTime);
+        if (internalStateRenderer.scene) drawFrame(deltaTime);
     
         double frameTime = platformGetTime() - currentTime;
         if (frameTime < internalStateRenderer.targetFrameTime) {
@@ -756,9 +753,7 @@ void vulkanRendererInitialize() {
     platformGetPlatformState()->height = platformGetPlatformState()->height;
     internalStateRenderer.startTime = platformGetTime();
     internalStateRenderer.targetFrameTime = 1 / 60.0;
-    internalStateRenderer.entities = hashmap_create(1000);
     internalStateRenderer.materialRendererStates = hashmap_create(100);
-    rendererCameraReset();
 
     createInstance();
     createSurface();

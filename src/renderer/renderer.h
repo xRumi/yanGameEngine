@@ -53,14 +53,6 @@ typedef struct FrameUBO {
     mat4 projection;
 } FrameUBO;
 
-typedef struct Camera {
-    vec3 position;
-    vec3 rotation;
-    float sensitivity;
-    bool dirty;
-    mat4 view, projection;
-} Camera;
-
 typedef struct PushConstant0 {
     mat4 model;
 } PushConstant0;
@@ -112,18 +104,18 @@ typedef struct RendererState {
     VkFence* inFlightFences;
 
     uint32_t currentFrame;
+
     bool framebufferResized;
     bool rendererReady;
+    bool useWireframe;
+
     double startTime;
     double targetFrameTime;
 
-    Camera camera;
-
-    bool useWireframe;
     PipelineState* pipelineStates;
     VkSampler textureSampler;
 
-    HashMap* entities; // TODO: make thread safe
+    Scene* scene;
     HashMap* materialRendererStates;
 
 } RendererState;

@@ -13,15 +13,17 @@ int main() {
     Model* boxModel = modelCreate("./assets/world/models/Cube", "Cube.gltf");
     Model* terrainModel = modelCreate("./assets/world/", "terrain.gltf");
 
+    Scene* scene = sceneCreate();
+
     Entity* box1 = entityCreate(boxModel);
     Entity* box2 = entityCreate(boxModel);
     Entity* terrain = entityCreate(terrainModel);
 
-    rendererAddEntity(box1);
-    rendererAddEntity(box2);
-    rendererAddEntity(terrain);
+    sceneAddEntity(scene, box1);
+    sceneAddEntity(scene, box2);
+    sceneAddEntity(scene, terrain);
 
-    rendererCameraSetPosition((vec3){{0, -6, 0}});
+    rendererSceneSet(scene);
 
     bool locked = false;
     PassiveDelay lockKey = passiveDelaySet(0.5);

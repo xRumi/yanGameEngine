@@ -15,3 +15,17 @@ void entityApplyTransform(Entity* entity, mat4 transform) {
 void entityResetTransform(Entity* entity) {
     entity->transform = mat4_identity();
 }
+
+Scene* sceneCreate() {
+    Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSSET_MANAGER);
+    scene->camera.sensitivity = 200;
+    scene->entities = hashmap_create(1000);
+    return scene;
+}
+void sceneDestroy(Scene* scene);
+void sceneAddEntity(Scene* scene, Entity* entity) {
+    hashmap_put(scene->entities, entity->id, (uint64_t)entity);
+}
+void sceneRemoveEntity(Scene* scene, Entity* entity) {
+    hashmap_remove(scene->entities, entity->id);
+}

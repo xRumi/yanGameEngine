@@ -4,6 +4,13 @@
 #include "math_types.h"
 #include "hashMap.h"
 
+typedef struct Camera {
+    vec3 position;
+    vec3 rotation;
+    mat4 view, projection;
+    float sensitivity;
+} Camera;
+
 typedef struct Vertex {
     vec3 position;
     vec4 color;
@@ -69,3 +76,8 @@ typedef struct Entity {
     Model* model;
     mat4 transform;
 } Entity;
+
+typedef struct Scene {
+    Camera camera;
+    HashMap* entities; // TODO: make thread safe
+} Scene;
