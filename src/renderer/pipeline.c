@@ -187,11 +187,16 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 vertexInputAttributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
                 vertexInputAttributeDescriptions[4].offset = offsetof(Vertex, tangent);
 
-                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 1);
+                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 2);
                 set_0_layoutBindings[0].binding = 0;
                 set_0_layoutBindings[0].descriptorCount = 1;
                 set_0_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                set_0_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                set_0_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+                set_0_layoutBindings[1].binding = 1;
+                set_0_layoutBindings[1].descriptorCount = 1;
+                set_0_layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
                 VkDescriptorSetLayoutCreateInfo set_0_layoutCreateInfo = {};
                 set_0_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -292,11 +297,17 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 vertexInputAttributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
                 vertexInputAttributeDescriptions[4].offset = offsetof(Vertex, tangent);
 
-                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 1);
+                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_reserve(VkDescriptorSetLayoutBinding, 2);
                 set_0_layoutBindings[0].binding = 0;
                 set_0_layoutBindings[0].descriptorCount = 1;
                 set_0_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
                 set_0_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+                set_0_layoutBindings[1].binding = 1;
+                set_0_layoutBindings[1].descriptorCount = 1;
+                set_0_layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
 
                 VkDescriptorSetLayoutCreateInfo set_0_layoutCreateInfo = {};
                 set_0_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -338,47 +349,67 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
         }
 }
 
-void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipeline) {
-    VkDeviceSize bufferSize = sizeof(FrameUBO);
+void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipelineState) {
+    VkDeviceSize frameUBOBufferSize = sizeof(FrameUBO);
+    VkDeviceSize lightUBOBufferSize = sizeof(LightUBO);
 
-    pipeline->frameUBO = darray_create_reserve(FrameUBO, MAX_FRAMES_IN_FLIGHT);
-    pipeline->frameUBOMemory = darray_create_reserve(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
-    pipeline->frameUBOMapped = darray_create_reserve(void*, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->frameUBOBuffer = darray_create_reserve(VkBuffer, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->frameUBOMemory = darray_create_reserve(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->frameUBOMapped = darray_create_reserve(void*, MAX_FRAMES_IN_FLIGHT);
+
+    pipelineState->lightUBOBuffer = darray_create_reserve(VkBuffer, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->lightUBOMemory = darray_create_reserve(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->lightUBOMapped = darray_create_reserve(void*, MAX_FRAMES_IN_FLIGHT);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        createBuffer(internalStateRenderer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pipeline->frameUBO[i], &pipeline->frameUBOMemory[i]);
-        vkMapMemory(internalStateRenderer.device, pipeline->frameUBOMemory[i], 0, bufferSize, 0, &pipeline->frameUBOMapped[i]);
+        createBuffer(internalStateRenderer, frameUBOBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pipelineState->frameUBOBuffer[i], &pipelineState->frameUBOMemory[i]);
+        vkMapMemory(internalStateRenderer.device, pipelineState->frameUBOMemory[i], 0, frameUBOBufferSize, 0, &pipelineState->frameUBOMapped[i]);
+        createBuffer(internalStateRenderer, lightUBOBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pipelineState->lightUBOBuffer[i], &pipelineState->lightUBOMemory[i]);
+        vkMapMemory(internalStateRenderer.device, pipelineState->lightUBOMemory[i], 0, lightUBOBufferSize, 0, &pipelineState->lightUBOMapped[i]);
     }
 
     VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {};
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipeline->descriptorSetLayouts[0];
-    pipeline->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipelineState->descriptorSetLayouts[0];
+    pipelineState->descriptorSets = darray_create_reserve(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
     allocInfo.pSetLayouts = layouts;
     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-    if (vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, pipeline->descriptorSets) != VK_SUCCESS) {
+    if (vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, pipelineState->descriptorSets) != VK_SUCCESS) {
         FATAL("Failed to allocate descriptor sets");
     }
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkWriteDescriptorSet writeDescriptors[1] = {};
+        VkWriteDescriptorSet writeDescriptors[2] = {};
 
-        VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = pipeline->frameUBO[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(FrameUBO);
+        VkDescriptorBufferInfo frameUBOBufferInfo = {};
+        frameUBOBufferInfo.buffer = pipelineState->frameUBOBuffer[i];
+        frameUBOBufferInfo.offset = 0;
+        frameUBOBufferInfo.range = sizeof(FrameUBO);
 
         writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         writeDescriptors[0].descriptorCount = 1;
-        writeDescriptors[0].dstSet = pipeline->descriptorSets[i];
-        writeDescriptors[0].pBufferInfo = &bufferInfo;
+        writeDescriptors[0].dstSet = pipelineState->descriptorSets[i];
+        writeDescriptors[0].pBufferInfo = &frameUBOBufferInfo;
         writeDescriptors[0].dstBinding = 0;
         writeDescriptors[0].dstArrayElement = 0;
 
-        vkUpdateDescriptorSets(internalStateRenderer.device, 1, writeDescriptors, 0, NULL);
+        VkDescriptorBufferInfo lightUBOBufferInfo = {};
+        lightUBOBufferInfo.buffer = pipelineState->lightUBOBuffer[i];
+        lightUBOBufferInfo.offset = 0;
+        lightUBOBufferInfo.range = sizeof(LightUBO);
+
+        writeDescriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptors[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptors[1].descriptorCount = 1;
+        writeDescriptors[1].dstSet = pipelineState->descriptorSets[i];
+        writeDescriptors[1].pBufferInfo = &lightUBOBufferInfo;
+        writeDescriptors[1].dstBinding = 1;
+        writeDescriptors[1].dstArrayElement = 0;
+
+        vkUpdateDescriptorSets(internalStateRenderer.device, CARRAY_SIZE(writeDescriptors), writeDescriptors, 0, NULL);
     }
 }

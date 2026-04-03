@@ -46,6 +46,10 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
             .tangent = {{1, 0, 0, 1}},
         };
     }
+    bool hasColor = false,
+        hasTexCoord = false,
+        hasNormal = false,
+        hasTangent = false;
     for (int i = 0; i < attributeCount; i++) {
         cgltf_attribute_type attributeType = attributes[i].type;
         cgltf_accessor* accessor = attributes[i].data;
@@ -67,24 +71,28 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                     break;
                 }
                 case cgltf_attribute_type_color: {
+                    hasColor = true;
                     vec4 color = {{0, 0, 0, 1}};
                     memcpy(&color, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].color = color;
                     break;
                 }
                 case cgltf_attribute_type_texcoord: {
+                    hasTexCoord = true;
                     vec2 texCoord = {};
                     memcpy(&texCoord, data + offset + stride * j, sizeof(vec2));
                     vertices[j].texCoord = texCoord;
                     break;
                 }
                 case cgltf_attribute_type_normal: {
+                    hasNormal = true;
                     vec3 normal = {};
                     memcpy(&normal, data + offset + stride * j, sizeof(vec3));
                     vertices[j].normal = normal;
                     break;
                 }
                 case cgltf_attribute_type_tangent: {
+                    hasTangent = true;
                     vec4 tangent = {{0, 0, 0, 1}};
                     memcpy(&tangent, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].tangent = tangent;
@@ -98,6 +106,12 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
             if (skipAttribute) break;
         }
     }
+    TRACE("Vertices count: %d, attribute count: %d", vertexCount, attributeCount);
+    TRACE("\tPosition");
+    if (hasColor) TRACE("\tColor");
+    if (hasTexCoord) TRACE("\ttexCoord");
+    if (hasNormal) TRACE("\tNormal");
+    if (hasTangent) TRACE("\tTangent");
     return vertices;
 }
 
@@ -168,6 +182,7 @@ HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, H
 }
 
 Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
+    TRACE(ANSI_COLOR_YELLOW "\b[MODEL_LOADER]" ANSI_RESET_ALL " Creating model \"%s\"", gltf_file);
     cgltf_options options = {};
     cgltf_data* gltf_data;
     char gltf_path[256];

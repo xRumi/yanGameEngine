@@ -23,6 +23,8 @@ int main() {
     sceneAddEntity(scene, box2);
     sceneAddEntity(scene, terrain);
 
+    scene->camera.position = (vec3){{0, 0, 8}};
+
     rendererSceneSet(scene);
 
     bool locked = false;
@@ -56,7 +58,7 @@ int main() {
 
         entityResetTransform(box2);
         entityApplyTransform(box2, mat4_translation(1.5, 0, 0));
-        entityApplyTransform(box2, mat4_mul(mat4_rotation_x(85 * elapsedTime), mat4_rotation_y(85 * elapsedTime)));
+        entityApplyTransform(box2, mat4_view_YXZ((vec3){{0, 0, 0}}, (vec3){{fmod(elapsedTime, TO_RADIANS(360)), fmod(elapsedTime, TO_RADIANS(360)), 0}}));
 
         entityResetTransform(terrain);
         entityApplyTransform(terrain, mat4_translation(0, 0, 0));

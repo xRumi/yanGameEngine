@@ -48,11 +48,6 @@ typedef struct SwapchainSupportDetails {
     bool isComplete;
 } SwapchainSupportDetails;
 
-typedef struct FrameUBO {
-    mat4 view;
-    mat4 projection;
-} FrameUBO;
-
 typedef struct PushConstant0 {
     mat4 model;
 } PushConstant0;
@@ -63,9 +58,13 @@ typedef struct PipelineState {
     VkDescriptorSetLayout* descriptorSetLayouts;
     VkDescriptorSet* descriptorSets;
 
-    VkBuffer* frameUBO;
+    VkBuffer* frameUBOBuffer;
     VkDeviceMemory* frameUBOMemory;
     void** frameUBOMapped;
+
+    VkBuffer* lightUBOBuffer;
+    VkDeviceMemory* lightUBOMemory;
+    void** lightUBOMapped;
 } PipelineState;
 
 typedef struct RendererState {

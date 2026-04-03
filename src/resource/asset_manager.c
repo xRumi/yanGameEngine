@@ -20,6 +20,15 @@ Scene* sceneCreate() {
     Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSSET_MANAGER);
     scene->camera.sensitivity = 200;
     scene->entities = hashmap_create(1000);
+    scene->lightUBO.pointLights[0].ambient = (vec4){{1}};
+    scene->lightUBO.pointLights[1].linear = 0;
+    scene->lightUBO.pointLights[1].quadratic = 1;
+    scene->lightUBO.directionalLights[0] = (DirectionalLight){
+        .direction = {{0, -1, 0}},
+        .ambient = {{.2, .2, .2}},
+        .diffuse = {{.5, .5, .5}},
+        .specular = {{1, 1, 1}},
+    };
     return scene;
 }
 void sceneDestroy(Scene* scene);

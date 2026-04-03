@@ -4,13 +4,6 @@
 #include "math_types.h"
 #include "hashMap.h"
 
-typedef struct Camera {
-    vec3 position;
-    vec3 rotation;
-    mat4 view, projection;
-    float sensitivity;
-} Camera;
-
 typedef struct Vertex {
     vec3 position;
     vec4 color;
@@ -77,7 +70,41 @@ typedef struct Entity {
     mat4 transform;
 } Entity;
 
+#define POINT_LIGHT_MAX_COUNT 32
+#define DIRECTIONAL_LIGHT_MAX_COUNT 16
+typedef struct __attribute__((aligned(16))) PointLight {
+    vec4 position;
+    vec4 ambient;
+    vec4 difusse;
+    vec4 specular;
+    float linear;
+    float quadratic;
+} PointLight;
+typedef struct __attribute__((aligned(16))) DirectionalLight {
+    vec4 direction;
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+} DirectionalLight;
+
+typedef struct Camera {
+    vec3 position;
+    vec3 rotation;
+    float sensitivity;
+} Camera;
+typedef struct __attribute__((aligned(16))) FrameUBO {
+    mat4 view;
+    mat4 projection;
+    vec4 cameraPosition;
+} FrameUBO;
+typedef struct __attribute__((aligned(16))) LightUBO {
+    PointLight pointLights[POINT_LIGHT_MAX_COUNT];
+    DirectionalLight directionalLights[DIRECTIONAL_LIGHT_MAX_COUNT];
+} LightUBO;
+
 typedef struct Scene {
     Camera camera;
+    FrameUBO frameUBO;
+    LightUBO lightUBO;
     HashMap* entities; // TODO: make thread safe
 } Scene;

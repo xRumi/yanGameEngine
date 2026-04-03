@@ -31,7 +31,7 @@ else
 	CPPFLAGS += -DNDEBUG
 endif
 
-$(BUILD_DIR)/$(TARGET): $(OBJS)
+$(BUILD_DIR)/$(TARGET): $(OBJS) shaders
 	$(CC) $(OBJS) $(LDFLAGS) $(PLATFORMFLAGS) -o $@
 
 $(BUILD_DIR)/%.c.o: %.c
@@ -41,7 +41,7 @@ $(BUILD_DIR)/%.c.o: %.c
 shaders:
 	$(MAKE) -C ./assets/shaders
 
-run: $(BUILD_DIR)/$(TARGET) shaders
+run: $(BUILD_DIR)/$(TARGET)
 	$(BUILD_DIR)/main
 
 clean:

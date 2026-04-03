@@ -474,13 +474,11 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
     double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
     (void)elapsedTime;
 
-
-    uint32_t sensitivity = 200;
     if (platformWindowIsFocused() && platformPointerIsLocked()) {
         PointerInput pointerRelative = platformInputPointerRelative();
         // rotation(euler angle): x = yaw, y = pitch, z = roll
-        internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * sensitivity * deltaTime;
-        internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * sensitivity * deltaTime;
+        internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * internalStateRenderer.scene->camera.sensitivity * deltaTime;
+        internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * internalStateRenderer.scene->camera.sensitivity * deltaTime;
         internalStateRenderer.scene->camera.rotation.x = fmodf(internalStateRenderer.scene->camera.rotation.x, TO_RADIANS(360));
         internalStateRenderer.scene->camera.rotation.y = clamp(internalStateRenderer.scene->camera.rotation.y, -1.5f, 1.5);
     }
@@ -490,21 +488,20 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
     uint32_t cameraMoveSpeed = 10;
     vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
     vec3 rightMoveAmount = vec3_scale(vec3_normalize(vec3_cross(front, UP_DIRECTION_VEC3)), deltaTime * cameraMoveSpeed);
+    vec3 upMoveAmount = vec3_scale(vec3_normalize(vec3_cross(rightMoveAmount, forwardMoveAmount)), deltaTime * cameraMoveSpeed);
     if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, forwardMoveAmount);
     if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(forwardMoveAmount));
     if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(rightMoveAmount));
     if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, rightMoveAmount);
-    if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.scene->camera.position.y += deltaTime * cameraMoveSpeed;
-    if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.scene->camera.position.y -= deltaTime * cameraMoveSpeed;
+    if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, upMoveAmount);
+    if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(upMoveAmount));
 
-    internalStateRenderer.scene->camera.view = mat4_view_YXZ(internalStateRenderer.scene->camera.position, internalStateRenderer.scene->camera.rotation);
-    internalStateRenderer.scene->camera.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
-    
-    FrameUBO ubo = {
-        .view = internalStateRenderer.scene->camera.view,
-        .projection = internalStateRenderer.scene->camera.projection
-    };
-    memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &ubo, sizeof(ubo));
+    internalStateRenderer.scene->frameUBO.view = mat4_view_YXZ(internalStateRenderer.scene->camera.position, internalStateRenderer.scene->camera.rotation);
+    internalStateRenderer.scene->frameUBO.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
+    internalStateRenderer.scene->frameUBO.cameraPosition = vec4_from_vec3(internalStateRenderer.scene->camera.position, 0);
+
+    memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->frameUBO, sizeof(FrameUBO));
+    memcpy(pipelineState->lightUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->lightUBO, sizeof(LightUBO));
 }
 
 void rendererLoadMesh(Mesh* mesh) {
