@@ -1,6 +1,7 @@
 #include "asset_manager.h"
 #include "asset_types.h"
 #include "hashMap.h"
+#include "utils.h"
 
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
@@ -46,23 +47,19 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
             .tangent = {{1, 0, 0, 1}},
         };
     }
-    bool hasColor = false,
-        hasTexCoord = false,
-        hasNormal = false,
-        hasTangent = false;
     for (int i = 0; i < attributeCount; i++) {
         cgltf_attribute_type attributeType = attributes[i].type;
         cgltf_accessor* accessor = attributes[i].data;
 
         uint8_t* data = (uint8_t*)accessor->buffer_view->buffer->data + accessor->buffer_view->offset;
 
-        unsigned long count = accessor->count,
+        uint64_t dataCount = accessor->count,
             offset = accessor->offset,
             stride = accessor->stride;
 
         bool skipAttribute = false;
 
-        for (int j = 0; j < count; j++) {
+        for (int j = 0; j < dataCount; j++) {
             switch (attributeType) {
                 case cgltf_attribute_type_position: {
                     vec3 position = {};
@@ -71,28 +68,24 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
                     break;
                 }
                 case cgltf_attribute_type_color: {
-                    hasColor = true;
                     vec4 color = {{0, 0, 0, 1}};
                     memcpy(&color, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].color = color;
                     break;
                 }
                 case cgltf_attribute_type_texcoord: {
-                    hasTexCoord = true;
                     vec2 texCoord = {};
                     memcpy(&texCoord, data + offset + stride * j, sizeof(vec2));
                     vertices[j].texCoord = texCoord;
                     break;
                 }
                 case cgltf_attribute_type_normal: {
-                    hasNormal = true;
                     vec3 normal = {};
                     memcpy(&normal, data + offset + stride * j, sizeof(vec3));
                     vertices[j].normal = normal;
                     break;
                 }
                 case cgltf_attribute_type_tangent: {
-                    hasTangent = true;
                     vec4 tangent = {{0, 0, 0, 1}};
                     memcpy(&tangent, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].tangent = tangent;
@@ -106,12 +99,6 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
             if (skipAttribute) break;
         }
     }
-    TRACE("Vertices count: %d, attribute count: %d", vertexCount, attributeCount);
-    TRACE("\tPosition");
-    if (hasColor) TRACE("\tColor");
-    if (hasTexCoord) TRACE("\ttexCoord");
-    if (hasNormal) TRACE("\tNormal");
-    if (hasTangent) TRACE("\tTangent");
     return vertices;
 }
 
@@ -182,7 +169,9 @@ HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, H
 }
 
 Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
-    TRACE(ANSI_COLOR_YELLOW "\b[MODEL_LOADER]" ANSI_RESET_ALL " Creating model \"%s\"", gltf_file);
+    char* traceStr = darray_create(char);
+    stringBuilderConcat(&traceStr, ANSI_COLOR_YELLOW "\b[MODEL_LOADER]" ANSI_RESET_ALL " Creating model \"%s\"\n", gltf_file);
+
     cgltf_options options = {};
     cgltf_data* gltf_data;
     char gltf_path[256];
@@ -200,8 +189,14 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
     model->name = gltf_file;
     model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
     model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
+    
+    stringBuilderConcat(&traceStr, "Image: %d\n", gltf_data->images_count);
+    stringBuilderConcat(&traceStr, "Material: %d\n", gltf_data->materials_count);
+
 
     for (int i = 0; i < gltf_data->meshes_count; i++) {
+        stringBuilderConcat(&traceStr, "\nMesh %d/%d:\n", i + 1, gltf_data->meshes_count);
+
         int primitives_count = gltf_data->meshes[i].primitives_count;
         for (int j = 0; j < primitives_count; j++) {
             cgltf_primitive* primitive = &gltf_data->meshes[i].primitives[j];
@@ -215,15 +210,20 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
 
                     Mesh mesh = {};
 
+                    stringBuilderConcat(&traceStr, "Indices    = %d\n", primitive->indices->count);
                     mesh.indices = load_indices(primitive->indices);
                     if (mesh.indices == NULL) FATAL("[%s] Failed to load indices", gltf_path);
 
+                    stringBuilderConcat(&traceStr, "Vertices   = %d\n", primitive->attributes[0].data->count);
                     mesh.vertices = load_vertices(primitive->attributes, primitive->attributes_count);
                     if (mesh.vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
 
                     Material* material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
                     darray_push(material->meshes, mesh);
 
+                    stringBuilderConcat(&traceStr, "Attributes = ");
+                    for (int i = 0; i < primitive->attributes_count; i++)
+                        stringBuilderConcat(&traceStr, "%s, ", primitive->attributes[i].name);
                     break;
                 }
                 default: {
@@ -233,5 +233,7 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
         }
     }
     cgltf_free(gltf_data);
+    TRACE(traceStr);
+    darray_destroy(traceStr);
     return model;
 }

@@ -37,3 +37,15 @@ bool passiveDelayIsDone(PassiveDelay passiveDelay) {
 void passiveDelayReset(PassiveDelay* passiveDelay) {
     passiveDelay->startTime = platformGetTime();
 }
+
+void stringBuilderConcat(char** darray, const char* message, ...) {
+    const int messageLimit = 32768;
+    char output[messageLimit];
+    va_list args;
+    va_start(args, message);
+    vsnprintf(output, messageLimit, message, args);
+    va_end(args);
+    for (int i = 0; output[i]; i++) {
+        darray_push(*darray, output[i]);
+    }
+}

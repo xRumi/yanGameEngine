@@ -34,11 +34,9 @@ void* _darray_resize_capacity(void* darray, uint64_t capacity) {
 
 void* _darray_resize_length(void* darray, uint64_t length) {
     DarrayState* state = _darray_get_state(darray);
-    if (state->length < length) {
-        if (state->capacity < length) {
-            darray = _darray_resize_capacity(darray, length);
-            state = _darray_get_state(darray);
-        }
+    if (state->capacity < length) {
+        darray = _darray_resize_capacity(darray, length);
+        state = _darray_get_state(darray);
     }
     state->length = length;
     return darray;
