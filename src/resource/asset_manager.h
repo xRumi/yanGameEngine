@@ -14,5 +14,9 @@ Scene* sceneCreate();
 void sceneDestroy(Scene* scene);
 void sceneAddEntity(Scene* scene, Entity* entity);
 void sceneRemoveEntity(Scene* scene, Entity* entity);
+PointLight* sceneAddPointLight(Scene* scene);
+void sceneRemovePointLight(Scene* scene, PointLight* light);
+DirectionalLight* sceneAddDirectionalLight(Scene* scene);
+void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light);
 
 Model* modelCreate(const char* gltf_dir, const char* gltf_file);

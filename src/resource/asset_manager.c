@@ -20,15 +20,6 @@ Scene* sceneCreate() {
     Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSSET_MANAGER);
     scene->camera.sensitivity = 200;
     scene->entities = hashmap_create(1000);
-    scene->lightUBO.pointLights[0].ambient = (vec4){{1}};
-    scene->lightUBO.pointLights[1].linear = 0;
-    scene->lightUBO.pointLights[1].quadratic = 1;
-    scene->lightUBO.directionalLights[0] = (DirectionalLight){
-        .direction = {{0, -1, 0}},
-        .ambient = {{.2, .2, .2}},
-        .diffuse = {{.5, .5, .5}},
-        .specular = {{1, 1, 1}},
-    };
     return scene;
 }
 void sceneDestroy(Scene* scene);
@@ -37,4 +28,31 @@ void sceneAddEntity(Scene* scene, Entity* entity) {
 }
 void sceneRemoveEntity(Scene* scene, Entity* entity) {
     hashmap_remove(scene->entities, entity->id);
+}
+
+PointLight* sceneAddPointLight(Scene* scene) {
+    if (scene->lightUBO.pointLightCount >= POINT_LIGHT_MAX_COUNT) return NULL;
+    return &scene->lightUBO.pointLights[(int)scene->lightUBO.pointLightCount++];
+}
+void sceneRemovePointLight(Scene* scene, PointLight* light) {
+    if (scene->lightUBO.pointLightCount <= 0) return;
+    for (int i = 0; i < POINT_LIGHT_MAX_COUNT; i++)
+        if (light == &scene->lightUBO.pointLights[i]) {
+            scene->lightUBO.pointLights[i] = scene->lightUBO.pointLights[(int)scene->lightUBO.pointLightCount - 1];
+            scene->lightUBO.pointLightCount--;
+            break;
+        }
+}
+DirectionalLight* sceneAddDirectionalLight(Scene* scene) {
+    if (scene->lightUBO.directionalLightCount >= POINT_LIGHT_MAX_COUNT) return NULL;
+    return &scene->lightUBO.directionalLights[(int)scene->lightUBO.directionalLightCount++];
+}
+void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light) {
+    if (scene->lightUBO.directionalLightCount <= 0) return;
+    for (int i = 0; i < DIRECTIONAL_LIGHT_MAX_COUNT; i++)
+        if (light == &scene->lightUBO.directionalLights[i]) {
+            scene->lightUBO.directionalLights[i] = scene->lightUBO.directionalLights[(int)scene->lightUBO.directionalLightCount - 1];
+            scene->lightUBO.directionalLightCount--;
+            break;
+        }
 }

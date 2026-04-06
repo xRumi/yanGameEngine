@@ -75,7 +75,7 @@ typedef struct Entity {
 typedef struct __attribute__((aligned(16))) PointLight {
     vec4 position;
     vec4 ambient;
-    vec4 difusse;
+    vec4 diffuse;
     vec4 specular;
     float linear;
     float quadratic;
@@ -98,6 +98,8 @@ typedef struct __attribute__((aligned(16))) FrameUBO {
     vec4 cameraPosition;
 } FrameUBO;
 typedef struct __attribute__((aligned(16))) LightUBO {
+    float pointLightCount, directionalLightCount;
+    float f_reserve[2];
     PointLight pointLights[POINT_LIGHT_MAX_COUNT];
     DirectionalLight directionalLights[DIRECTIONAL_LIGHT_MAX_COUNT];
 } LightUBO;

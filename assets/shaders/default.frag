@@ -8,7 +8,7 @@ layout (location = 3) in vec3 fragNormal;
 struct PointLight {
     vec4 position;
     vec4 ambient;
-    vec4 difusse;
+    vec4 diffuse;
     vec4 specular;
     float linear;
     float quadratic;
@@ -27,6 +27,8 @@ layout (set = 0, binding = 0) uniform UniformBufferObject0 {
     vec4 cameraPosition;
 } frameUBO;
 layout (set = 0, binding = 1) uniform UniformBufferObject1 {
+    float pointLightCount, directionalLightCount;
+    float f_reserve0, f_reserve1;
     PointLight pointLights[POINT_LIGHT_MAX_COUNT];
     DirectionalLight directionalLights[DIRECTIONAL_LIGHT_MAX_COUNT];
 } lightUBO;
@@ -37,26 +39,38 @@ layout (set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 
 layout (location = 0) out vec4 outColor;
 
-vec3 CalcDirectionalLight(DirectionalLight light, vec3 baseColor, vec3 normal, vec3 cameraDirection) {
-    vec3 fragToLight = vec3(normalize(-light.direction));
-    vec3 lightReflection = reflect(-fragToLight, normal);
-    float diffuseFactor = max(dot(fragToLight, normal), 0.0);
+vec4 CalcDirectionalLight(DirectionalLight light, vec4 baseColor, vec4 normal, vec4 cameraDirection) {
+    vec4 lightDirection = normalize(-light.direction);
+    vec4 lightReflection = reflect(-lightDirection, normal);
+    float diffuseFactor = max(dot(lightDirection, normal), 0.0);
     float specularFactor = pow(max(dot(cameraDirection, lightReflection), 0.0), 64.0);
-    vec3 ambient  = vec3(light.ambient)  * baseColor;
-    vec3 diffuse  = vec3(light.diffuse)  * diffuseFactor * baseColor;
-    vec3 specular = vec3(light.specular) * specularFactor * 0.5;
+    vec4 ambient  = light.ambient * baseColor;
+    vec4 diffuse  = light.diffuse * diffuseFactor * baseColor;
+    vec4 specular = light.specular * specularFactor * 0.5;
     return (ambient + diffuse + specular);
+}
+vec4 CalcPointLight(PointLight light, vec4 baseColor, vec4 normal, vec4 cameraDirection) {
+    vec4 lightDirection = normalize(light.position - vec4(fragPosition, 0));
+    vec4 lightReflection = reflect(-lightDirection, normal);
+    float diffuseFactor = max(dot(lightDirection, normal), 0.0);
+    float specularFactor = pow(max(dot(cameraDirection, lightReflection), 0.0), 64.0);
+    float distance = length(light.position - vec4(fragPosition, 0));
+    float attenuation = 1.0 / (1 + light.linear * distance + light.quadratic * (distance * distance));
+    vec4 ambient  = light.ambient * baseColor;
+    vec4 diffuse  = light.diffuse * diffuseFactor * baseColor;
+    vec4 specular = light.specular * specularFactor * 0.5;
+    return (ambient + diffuse + specular) * attenuation;
 }
 
 void main() {
-    vec3 baseColor = vec3(texture(baseColorSampler, fragTexCoord));
-    vec3 cameraDirection = normalize(vec3(frameUBO.cameraPosition) - fragPosition);
-    vec3 normal = normalize(fragNormal);
+    vec4 baseColor = texture(baseColorSampler, fragTexCoord);
+    vec4 cameraDirection = normalize(frameUBO.cameraPosition - vec4(fragPosition, 0));
+    vec4 normal = normalize(vec4(fragNormal, 0));
 
     outColor = vec4(0);
-    for (int i = 0; i < 1; i++) {
-        vec3 directionalLight = CalcDirectionalLight(lightUBO.directionalLights[i], baseColor, normal, cameraDirection);
-        outColor += vec4(directionalLight, 0);
-    }
+    for (int i = 0; i < lightUBO.directionalLightCount; i++)
+        outColor += CalcDirectionalLight(lightUBO.directionalLights[i], baseColor, normal, cameraDirection);
+    for (int i = 0; i < lightUBO.pointLightCount; i++)
+        outColor += CalcPointLight(lightUBO.pointLights[i], baseColor, normal, cameraDirection);
     outColor *= fragColor;
 }

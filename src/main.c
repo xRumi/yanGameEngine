@@ -23,6 +23,15 @@ int main() {
     sceneAddEntity(scene, box2);
     sceneAddEntity(scene, terrain);
 
+    PointLight* light = sceneAddPointLight(scene);
+    *light = (PointLight){
+        .ambient = {{.1, .1, .1}},
+        .position = {{0, 5, 0}},
+        .diffuse = {{1, 1, 1}},
+        .linear = 0.007,
+        .quadratic = 0.00098
+    };
+
     scene->camera.position = (vec3){{0, 0, 8}};
 
     rendererSceneSet(scene);
@@ -52,7 +61,7 @@ int main() {
             rendererWireframeToggle();
             passiveDelayReset(&xKey);
         }
-
+        
         entityResetTransform(box1);
         entityApplyTransform(box1, mat4_translation(-1.5, 0, 0));
 
@@ -62,7 +71,6 @@ int main() {
 
         entityResetTransform(terrain);
         entityApplyTransform(terrain, mat4_translation(0, 0, 0));
-
 
         platformPullEvent();
         platformSleep(1.0 / 144.0);
