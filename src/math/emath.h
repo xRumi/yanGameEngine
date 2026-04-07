@@ -12,6 +12,9 @@ vec3 vec3_normalize(vec3 a);
 vec4 vec4_from_vec3(vec3 a, float w);
 vec3 vec3_from_vec4(vec4 a);
 
+vec3 vec3_min(vec3 a, vec3 b);
+vec3 vec3_max(vec3 a, vec3 b);
+
 float vec3_dot(vec3 a, vec3 b);
 float vec3_length_sqr(vec3 a);
 float vec3_length(vec3 a);

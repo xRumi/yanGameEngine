@@ -67,6 +67,21 @@ vec3 vec3_from_vec4(vec4 a) {
     }};
 }
 
+vec3 vec3_min(vec3 a, vec3 b) {
+    return (vec3){{
+        a.x < b.x ? a.x : b.x,
+        a.y < b.y ? a.y : b.y,
+        a.z < b.z ? a.z : b.z,
+    }};
+}
+vec3 vec3_max(vec3 a, vec3 b) {
+    return (vec3){{
+        a.x > b.x ? a.x : b.x,
+        a.y > b.y ? a.y : b.y,
+        a.z > b.z ? a.z : b.z,
+    }};
+}
+
 mat4 mat4_identity() {
     return (mat4){{
         1, 0, 0, 0,

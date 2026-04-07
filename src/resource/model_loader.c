@@ -102,6 +102,29 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
+void calculate_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
+    for (int i = 0; i < attributeCount; i++)
+        if (attributes[i].type == cgltf_attribute_type_position) {
+            cgltf_accessor* accessor = attributes[i].data;
+            if (accessor->has_max && accessor->has_min) {
+                mesh->AABB.min = (vec3){{accessor->min[0], accessor->min[1], accessor->min[2]}};
+                mesh->AABB.max = (vec3){{accessor->max[0], accessor->max[1], accessor->max[2]}};
+                return;
+            }
+        }
+    TRACE("AABB not provided, generating overself");
+    vec3 min = {{INFINITY, INFINITY, INFINITY}},
+        max = {{-INFINITY, -INFINITY, -INFINITY}};
+    int vertexCount = darray_get_length(mesh->vertices);
+    for (int i = 0; i < vertexCount; i++) {
+        vec3 position = mesh->vertices[i].position;
+        min = vec3_min(min, position);
+        max = vec3_max(max, position);
+    }    
+    mesh->AABB.min = min;
+    mesh->AABB.max = max;
+}
+
 void load_default_images(HashMap* images) {
     Image* image0 = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER),
         *image1 = memalloc(sizeof(Image), MEMORY_TAG_MODEL_LOADER);
@@ -191,8 +214,7 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
     model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
     
     stringBuilderConcat(&traceStr, "Image: %d\n", gltf_data->images_count);
-    stringBuilderConcat(&traceStr, "Material: %d\n", gltf_data->materials_count);
-
+    stringBuilderConcat(&traceStr, "Material: %d", gltf_data->materials_count);
 
     for (int i = 0; i < gltf_data->meshes_count; i++) {
         stringBuilderConcat(&traceStr, "\nMesh %d/%d:\n", i + 1, gltf_data->meshes_count);
@@ -217,6 +239,7 @@ Model* modelCreate(const char* gltf_dir, const char* gltf_file) {
                     stringBuilderConcat(&traceStr, "Vertices   = %d\n", primitive->attributes[0].data->count);
                     mesh.vertices = load_vertices(primitive->attributes, primitive->attributes_count);
                     if (mesh.vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
+                    calculate_AABB(&mesh, primitive->attributes, primitive->attributes_count);
 
                     Material* material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
                     darray_push(material->meshes, mesh);

@@ -40,6 +40,9 @@ typedef struct Texture {
 typedef struct Mesh {
     Vertex* vertices;
     uint32_t* indices;
+    struct {
+        vec3 min, max;
+    } AABB;
     void* meshRendererStateRef;
 } Mesh;
 
