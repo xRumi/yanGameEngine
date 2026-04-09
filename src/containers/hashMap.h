@@ -16,6 +16,7 @@ typedef struct HashMap {
 HashMap* hashmap_create(uint64_t capacity);
 void hashmap_put(HashMap* hashMap, uint64_t key, uint64_t val);
 uint64_t hashmap_get(HashMap* hashMap, uint64_t key);
+uint64_t hashmap_swap(HashMap* hashMap, uint64_t key, uint64_t val);
 bool hashmap_has(HashMap* hashMap, uint64_t key);
 void hashmap_remove(HashMap* hashMap, uint64_t key);
 void hashmap_destroy(HashMap* hashMap);

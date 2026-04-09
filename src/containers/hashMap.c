@@ -12,6 +12,7 @@ HashMap* hashmap_create(uint64_t capacity) {
     return hashMap;
 }
 void hashmap_put(HashMap* hashMap, uint64_t key, uint64_t val) {
+    if (hashMap == NULL) return;
     if (hashmap_has(hashMap, key)) {
         WARN("hashmap_put: key already exists");
         return;
@@ -23,6 +24,7 @@ void hashmap_put(HashMap* hashMap, uint64_t key, uint64_t val) {
     darray_push(hashMap->nodes[index], node);
 }
 uint64_t hashmap_get(HashMap* hashMap, uint64_t key) {
+    if (hashMap == NULL) return 0;
     uint64_t index = hashFunction(key, hashMap->capacity);
     if (hashMap->nodes[index] == NULL) return 0;
     uint64_t nodeCount = darray_get_length(hashMap->nodes[index]);
@@ -30,7 +32,21 @@ uint64_t hashmap_get(HashMap* hashMap, uint64_t key) {
         if (hashMap->nodes[index][i].key == key) return hashMap->nodes[index][i].val;
     return 0;
 }
+uint64_t hashmap_swap(HashMap* hashMap, uint64_t key, uint64_t val) {
+    if (hashMap == NULL) return 0;
+    uint64_t index = hashFunction(key, hashMap->capacity);
+    if (hashMap->nodes[index] == NULL) return 0;
+    uint64_t nodeCount = darray_get_length(hashMap->nodes[index]);
+    for (int i = 0; i < nodeCount; i++)
+        if (hashMap->nodes[index][i].key == key) {
+            uint64_t temp = hashMap->nodes[index][i].val;
+            hashMap->nodes[index][i].val = val;
+            return temp;
+        }
+    return 0;
+}
 bool hashmap_has(HashMap* hashMap, uint64_t key) {
+    if (hashMap == NULL) return 0;
     uint64_t index = hashFunction(key, hashMap->capacity);
     if (hashMap->nodes[index] == NULL) return false;
     uint64_t nodeCount = darray_get_length(hashMap->nodes[index]);
@@ -39,6 +55,7 @@ bool hashmap_has(HashMap* hashMap, uint64_t key) {
     return false;
 }
 void hashmap_remove(HashMap* hashMap, uint64_t key) {
+    if (hashMap == NULL) return;
     uint64_t index = hashFunction(key, hashMap->capacity);
     if (hashMap->nodes[index] == NULL) return;
     uint64_t nodeCount = darray_get_length(hashMap->nodes[index]);
@@ -50,6 +67,7 @@ void hashmap_remove(HashMap* hashMap, uint64_t key) {
         }
 }
 void hashmap_destroy(HashMap* hashMap) {
+    if (hashMap == NULL) return;
     uint64_t capacity = hashMap->capacity;
     for (uint64_t i = 0; i < capacity; i++) darray_destroy(hashMap->nodes[i]);
     darray_destroy(hashMap->nodes);
