@@ -99,6 +99,14 @@ mat4 mat4_translation(float x, float y, float z) {
         x, y, z, 1,
     }};
 }
+mat4 mat4_translation_vec3(vec3 a) {
+    return (mat4){{
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        a.x, a.y, a.z, 1,
+    }};
+}
 mat4 mat4_scale(float x, float y, float z) {
     return (mat4){{
         x, 0, 0, 0,
@@ -107,10 +115,17 @@ mat4 mat4_scale(float x, float y, float z) {
         0, 0, 0, 1,
     }};
 }
-mat4 mat4_rotation_x(float degree) {
-    degree = TO_RADIANS(degree);
-    float c = cosf(degree),
-        s = sinf(degree);
+mat4 mat4_scale_vec3(vec3 a) {
+    return (mat4){{
+        a.x, 0, 0, 0,
+        0, a.y, 0, 0,
+        0, 0, a.z, 0,
+        0, 0, 0, 1,
+    }};
+}
+mat4 mat4_rotation_x(float rad) {
+    float c = cosf(rad),
+        s = sinf(rad);
     mat4 ret = {{
         1, 0, 0, 0,
         0, c, s, 0,
@@ -119,10 +134,9 @@ mat4 mat4_rotation_x(float degree) {
     }};
     return ret;
 }
-mat4 mat4_rotation_y(float degree) {
-    degree = TO_RADIANS(degree);
-    float c = cosf(degree),
-        s = sinf(degree);
+mat4 mat4_rotation_y(float rad) {
+    float c = cosf(rad),
+        s = sinf(rad);
     mat4 ret = {{
         c, 0,-s, 0,
         0, 1, 0, 0,
@@ -131,10 +145,9 @@ mat4 mat4_rotation_y(float degree) {
     }};
     return ret;
 }
-mat4 mat4_rotation_z(float degree) {
-    degree = TO_RADIANS(degree);
-    float c = cosf(degree),
-        s = sinf(degree);
+mat4 mat4_rotation_z(float rad) {
+    float c = cosf(rad),
+        s = sinf(rad);
     mat4 ret = {{
         c, s, 0, 0,
        -s, c, 0, 0,
