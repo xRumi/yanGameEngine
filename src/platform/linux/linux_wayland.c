@@ -42,7 +42,7 @@ struct {
     struct xkb_keymap* xkb_keymap;
 
     bool window_focused;
-    bool keyboard_input_xkb[256];
+    bool keyboard_input_xkb[90000];
     bool wl_pointer_inside_surface;
     bool hide_cursor;
     uint32_t wl_pointer_serial;
@@ -54,7 +54,8 @@ struct {
 const uint32_t keyboard_input_xkb_map[KEY_INPUT_MAX] = {
     XKB_KEY_A, XKB_KEY_B, XKB_KEY_C, XKB_KEY_D, XKB_KEY_E, XKB_KEY_F, XKB_KEY_G, XKB_KEY_H, XKB_KEY_I, XKB_KEY_J, XKB_KEY_K, XKB_KEY_L, XKB_KEY_M, XKB_KEY_N, XKB_KEY_O, XKB_KEY_P, XKB_KEY_Q, XKB_KEY_R, XKB_KEY_S, XKB_KEY_T, XKB_KEY_U, XKB_KEY_V, XKB_KEY_W, XKB_KEY_X, XKB_KEY_Y, XKB_KEY_Z,
     XKB_KEY_a, XKB_KEY_b, XKB_KEY_c, XKB_KEY_d, XKB_KEY_e, XKB_KEY_f, XKB_KEY_g, XKB_KEY_h, XKB_KEY_i, XKB_KEY_j, XKB_KEY_k, XKB_KEY_l, XKB_KEY_m, XKB_KEY_n, XKB_KEY_o, XKB_KEY_p, XKB_KEY_q, XKB_KEY_r, XKB_KEY_s, XKB_KEY_t, XKB_KEY_u, XKB_KEY_v, XKB_KEY_w, XKB_KEY_x, XKB_KEY_y, XKB_KEY_z,
-    XKB_KEY_0, XKB_KEY_1, XKB_KEY_2, XKB_KEY_3, XKB_KEY_4, XKB_KEY_5, XKB_KEY_6, XKB_KEY_7, XKB_KEY_8, XKB_KEY_9
+    XKB_KEY_0, XKB_KEY_1, XKB_KEY_2, XKB_KEY_3, XKB_KEY_4, XKB_KEY_5, XKB_KEY_6, XKB_KEY_7, XKB_KEY_8, XKB_KEY_9,
+    XKB_KEY_Escape
 };
 
 static void registry_handle_global(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
