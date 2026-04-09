@@ -46,5 +46,5 @@ DarrayState* _darray_get_state(const void* darray);
 
 extern volatile int volatile_true;
 #define darray_foreach(darray, x) \
-    for (int __size = darray_get_length(darray), __i = 0; i < __size && ((x = darray_at_type(darray, __i, typeof(x))) || volatile_true); __i++)
+    for (int __size = darray_get_length(darray), __i = 0; __i < __size && ((x = darray_at_type(darray, __i, typeof(x))) || volatile_true); __i++)
 
