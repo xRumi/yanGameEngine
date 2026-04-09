@@ -28,4 +28,7 @@ extern volatile int volatile_true;
     for (int __size = hashMap->capacity, __i = 0; __i < __size; __i++) \
         for (int __nodeSize = darray_get_length(hashMap->nodes[__i]), __j = 0; __j < __nodeSize && ((x = (typeof(x))hashMap->nodes[__i][__j].val) || volatile_true); __j++)
 
+#define hashmap_foreach_mutable(hashMap, x) \
+    for (int __size = hashMap->capacity, __i = 0; __i < __size; __i++) \
+        for (int __nodeSize = darray_get_length(hashMap->nodes[__i]), __j = 0; __j < __nodeSize && ((x = (typeof(x))&hashMap->nodes[__i][__j].val) || volatile_true); __j++)
 

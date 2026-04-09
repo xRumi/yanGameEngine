@@ -14,7 +14,7 @@ HashMap* hashmap_create(uint64_t capacity) {
 void hashmap_put(HashMap* hashMap, uint64_t key, uint64_t val) {
     if (hashMap == NULL) return;
     if (hashmap_has(hashMap, key)) {
-        WARN("hashmap_put: key already exists");
+        hashmap_swap(hashMap, key, val);
         return;
     }
     hashMap->size++;

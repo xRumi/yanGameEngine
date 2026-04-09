@@ -2,6 +2,8 @@
 
 #ifdef __linux__
 
+#include "hashMap.h"
+
 #include <wayland-client.h>
 #include "xdg-shell-client-protocol.h"
 #include "xdg-decoration-unstable-v1-protocol.h"
@@ -42,7 +44,7 @@ struct {
     struct xkb_keymap* xkb_keymap;
 
     bool window_focused;
-    bool keyboard_input_xkb[90000];
+    HashMap* keyboard_input_xkb;
     bool wl_pointer_inside_surface;
     bool hide_cursor;
     uint32_t wl_pointer_serial;
@@ -129,11 +131,11 @@ void handle_wl_keyboard_input(uint32_t key, uint32_t state) {
     char buf[128];
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(internalStatePlatform.xkb_state, key + 8);
     xkb_keysym_get_name(keysym, buf, sizeof(buf));
-    if (keysym >= CARRAY_SIZE(internalStatePlatform.keyboard_input_xkb)) {
-        WARN("Unknown key (%s) %s", buf, state == WL_KEYBOARD_KEY_STATE_PRESSED ? "pressed" : "released");
-        return;
-    }
-    internalStatePlatform.keyboard_input_xkb[keysym] = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
+    // if (keysym >= CARRAY_SIZE(internalStatePlatform.keyboard_input_xkb)) {
+    //     WARN("Unknown key (%s) %s", buf, state == WL_KEYBOARD_KEY_STATE_PRESSED ? "pressed" : "released");
+    //     return;
+    // }
+    hashmap_put(internalStatePlatform.keyboard_input_xkb, keysym, (state == WL_KEYBOARD_KEY_STATE_PRESSED));
 }
 
 void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
@@ -146,8 +148,10 @@ void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t ser
 }
 void wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
     internalStatePlatform.window_focused = false;
-    int keymapSize = CARRAY_SIZE(internalStatePlatform.keyboard_input_xkb);
-    for (int i = 0; i < keymapSize; i++) internalStatePlatform.keyboard_input_xkb[i] = false;
+    uint64_t* pressed;
+    hashmap_foreach_mutable(internalStatePlatform.keyboard_input_xkb, pressed) {
+        *pressed = false;
+    }
 }
 void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
     handle_wl_keyboard_input(key, state);
@@ -277,6 +281,7 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
     wl_registry_add_listener(registry, &registry_listener, NULL);
 
     internalStatePlatform.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    internalStatePlatform.keyboard_input_xkb = hashmap_create(1000);
 
     wl_display_roundtrip(internalStatePlatform.wl_display);
 
@@ -335,7 +340,7 @@ void platformSleep(double time) {
 }
 
 bool platformInputIsKeyDown(KeyboardInputMap key) {
-    return internalStatePlatform.keyboard_input_xkb[keyboard_input_xkb_map[key]];
+    return hashmap_get(internalStatePlatform.keyboard_input_xkb, keyboard_input_xkb_map[key]);
 }
 
 PointerInput platformInputPointerCurr() {
