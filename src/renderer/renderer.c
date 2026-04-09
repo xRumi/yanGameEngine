@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "asset_manager.h"
 
 const char* instanceLayers[] = {"VK_LAYER_KHRONOS_validation"};
 const char* instanceExtensions[] = {VK_KHR_DISPLAY_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME};
@@ -477,8 +478,8 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
     if (platformWindowIsFocused() && platformPointerIsLocked()) {
         PointerInput pointerRelative = platformInputPointerRelative();
         // rotation(euler angle): x = yaw, y = pitch, z = roll
-        internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * internalStateRenderer.scene->camera.sensitivity * deltaTime;
-        internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * internalStateRenderer.scene->camera.sensitivity * deltaTime;
+        internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * internalStateRenderer.scene->camera.sensitivity;
+        internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * internalStateRenderer.scene->camera.sensitivity;
         internalStateRenderer.scene->camera.rotation.x = fmodf(internalStateRenderer.scene->camera.rotation.x, TO_RADIANS(360));
         internalStateRenderer.scene->camera.rotation.y = clamp(internalStateRenderer.scene->camera.rotation.y, -1.5f, 1.5);
     }
@@ -633,7 +634,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
         if (!model->rendererLoaded) rendererLoadModel(model);
 
         PushConstant0 pushConstant0 = {};
-        pushConstant0.model = entity->transform;
+        pushConstant0.model = entityModelMatrixGet(entity);
 
         Material* material;
         hashmap_foreach(model->materials, material) {

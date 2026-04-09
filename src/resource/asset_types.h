@@ -1,8 +1,11 @@
 #pragma once
 
+#include <stdatomic.h>
+
 #include "defines.h"
 #include "math_types.h"
 #include "hashMap.h"
+#include "physics.h"
 
 typedef struct Vertex {
     vec3 position;
@@ -40,9 +43,7 @@ typedef struct Texture {
 typedef struct Mesh {
     Vertex* vertices;
     uint32_t* indices;
-    struct {
-        vec3 min, max;
-    } AABB;
+    AABB aabb;
     void* meshRendererStateRef;
 } Mesh;
 
@@ -64,13 +65,23 @@ typedef struct Model {
     const char* name;
     HashMap* images;
     HashMap* materials;
+    AABB aabb;
     bool rendererLoaded;
 } Model;
+
+typedef struct ModelMatrix {
+    mat4 buffers[2]; // 0 = read, 1 = write
+    atomic_flag locked;
+    bool shouldYield;
+} ModelMatrix;
 
 typedef struct Entity {
     uint64_t id;
     Model* model;
-    mat4 transform;
+    AABB aabb;
+    Transform transform;
+    ModelMatrix modelMatrix;
+    PhysicsBody* physicsBody;
 } Entity;
 
 #define POINT_LIGHT_MAX_COUNT 32
@@ -112,4 +123,5 @@ typedef struct Scene {
     FrameUBO frameUBO;
     LightUBO lightUBO;
     HashMap* entities; // TODO: make thread safe
+    PhysicsEngine* physicsEngine;
 } Scene;
