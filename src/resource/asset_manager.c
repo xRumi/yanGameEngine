@@ -46,7 +46,7 @@ mat4 entityModelMatrixGet(Entity* entity) {
 }
 
 Scene* sceneCreate() {
-    Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSSET_MANAGER);
+    Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSET_MANAGER);
     scene->camera.sensitivity = 1;
     scene->entities = hashmap_create(1000);
     scene->physicsEngine = physicsEngineCreate();
