@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "emath.h"
 #include "asset_types.h"
 #include "asset_manager.h"
 #include "rendererAPI.h"
@@ -6,7 +7,7 @@
 
 int main() {
     uint32_t width = 600, height = 600, fps = 144;
-    engineInitialize("yanGameEngine - Physics Engine Test", 0, 0, width, height);
+    engineInitialize("yanGameEngine - Triangle", 0, 0, width, height);
     rendererSetFPS(fps);
 
     Model* boxModel = assetLoadGLTF("./assets/world/models/Cube", "Cube.gltf");

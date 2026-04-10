@@ -24,4 +24,5 @@ void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light);
 
 void sceneEntityPhysicsBodyCreate(Scene* scene, Entity* entity);
 
-Model* modelCreate(const char* gltf_dir, const char* gltf_file);
+Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file);
+Model* assetGenerateUVSphere(int slices, int stacks, float radius);
