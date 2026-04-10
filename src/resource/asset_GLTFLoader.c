@@ -11,7 +11,7 @@
 #include "stb/stb_image.h"
 
 struct {
-} internalStateModelLoader;
+} internalStateGLTFLoader;
 
 uint32_t* load_indices(const cgltf_accessor* accessor) {
     if (!accessor || accessor->type != cgltf_type_scalar) return NULL;
@@ -19,7 +19,7 @@ uint32_t* load_indices(const cgltf_accessor* accessor) {
         offset = accessor->offset,
         stride = accessor->stride;
     uint8_t* data = (uint8_t*)accessor->buffer_view->buffer->data + accessor->buffer_view->offset;
-    uint32_t* indices = darray_create_reserve_memoryTag(uint32_t, count, MEMORY_TAG_GLTF_MODEL_LOADER);
+    uint32_t* indices = darray_create_reserve_memoryTag(uint32_t, count, MEMORY_TAG_ASSET_MANAGER);
     for (int i = 0; i < count; i++) {
         uint8_t* nthData = data + offset + stride * i;
         uint32_t index = 0;
@@ -37,7 +37,7 @@ uint32_t* load_indices(const cgltf_accessor* accessor) {
 Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount) {
     if (!attributes) return NULL;
     uint32_t vertexCount = attributes[0].data->count;
-    Vertex* vertices = darray_create_reserve_memoryTag(Vertex, vertexCount, MEMORY_TAG_GLTF_MODEL_LOADER);
+    Vertex* vertices = darray_create_reserve_memoryTag(Vertex, vertexCount, MEMORY_TAG_ASSET_MANAGER);
     for (int i = 0; i < vertexCount; i++) {
         vertices[i] = (Vertex){
             .position = {{0, 0, 0}},
@@ -143,19 +143,6 @@ void calculate_model_AABB(Model* model) {
     model->aabb = aabb;
 }
 
-void load_default_images(HashMap* images) {
-    Image* image0 = memalloc(sizeof(Image), MEMORY_TAG_GLTF_MODEL_LOADER),
-        *image1 = memalloc(sizeof(Image), MEMORY_TAG_GLTF_MODEL_LOADER);
-    image0->width = image0->height = 1;
-    image1->width = image1->height = 1;
-    image0->data = memalloc(sizeof(uint32_t), MEMORY_TAG_GLTF_MODEL_LOADER);
-    image1->data = memalloc(sizeof(uint32_t), MEMORY_TAG_GLTF_MODEL_LOADER);
-    memset(image0->data, 0, sizeof(uint32_t));
-    memset(image1->data, 255, sizeof(uint32_t));
-    hashmap_put(images, hash_string("__baseColor0"), (uint64_t)image0);
-    hashmap_put(images, hash_string("__baseColor255"), (uint64_t)image1);
-}
-
 HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCount) {
     (void)stbi__mul2shorts_valid;
     (void)stbi__addints_valid;
@@ -174,23 +161,13 @@ HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCo
             WARN("Failed to load image, skipping");
             continue;
         }
-        Image* image = memalloc(sizeof(Image), MEMORY_TAG_GLTF_MODEL_LOADER);
+        Image* image = memalloc(sizeof(Image), MEMORY_TAG_ASSET_MANAGER);
         image->height = height;
         image->width = width;
         image->data = pixels;
         hashmap_put(imageHashMap, hash_string(images[i].uri), (uint64_t)image);
     }
     return imageHashMap;
-}
-
-Material* create_default_material(HashMap* images) {
-    Material* ret = memalloc(sizeof(Material), MEMORY_TAG_GLTF_MODEL_LOADER);
-    ret->baseColor.image = (Image*)hashmap_get(images, hash_string("__baseColor255"));
-    ret->normal.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
-    ret->metallicRoughness.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
-    ret->pipelineType = PIPELINE_TYPE_DEFAULT;
-    ret->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_GLTF_MODEL_LOADER);
-    return ret;
 }
 
 HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, HashMap* images) {
@@ -226,7 +203,7 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
         return NULL;
     }
 
-    Model* model = memalloc(sizeof(Model), MEMORY_TAG_GLTF_MODEL_LOADER);
+    Model* model = memalloc(sizeof(Model), MEMORY_TAG_ASSET_MANAGER);
     model->name = gltf_file;
     model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
     model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);

@@ -26,3 +26,5 @@ void sceneEntityPhysicsBodyCreate(Scene* scene, Entity* entity);
 
 Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file);
 Model* assetGenerateUVSphere(int slices, int stacks, float radius);
+void load_default_images(HashMap* images);
+Material* create_default_material(HashMap* images);
