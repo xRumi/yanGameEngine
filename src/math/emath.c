@@ -176,11 +176,7 @@ vec4 mat4_mul_vec4(mat4 m, vec4 v) {
     }};
 };
 vec3 mat4_mul_vec3(mat4 m, vec3 v) {
-    return (vec3){{
-        m.ele[0]*v.ele[0] + m.ele[4]*v.ele[1] + m.ele[8]*v.ele[2],
-        m.ele[1]*v.ele[0] + m.ele[5]*v.ele[1] + m.ele[9]*v.ele[2],
-        m.ele[2]*v.ele[0] + m.ele[6]*v.ele[1] + m.ele[10]*v.ele[2],
-    }};
+    return vec3_from_vec4(mat4_mul_vec4(m, vec4_from_vec3(v, 1)));
 };
 mat4 mat4_transpose(mat4 m) {
     mat4 ret;
