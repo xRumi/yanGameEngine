@@ -102,45 +102,18 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
-void calculate_mesh_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
+void find_mesh_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
     for (int i = 0; i < attributeCount; i++)
         if (attributes[i].type == cgltf_attribute_type_position) {
             cgltf_accessor* accessor = attributes[i].data;
             if (accessor->has_max && accessor->has_min) {
-                mesh->aabb.min = (vec3){{accessor->min[0], accessor->min[1], accessor->min[2]}};
-                mesh->aabb.max = (vec3){{accessor->max[0], accessor->max[1], accessor->max[2]}};
+                mesh->collider.aabb.min = (vec3){{accessor->min[0], accessor->min[1], accessor->min[2]}};
+                mesh->collider.aabb.max = (vec3){{accessor->max[0], accessor->max[1], accessor->max[2]}};
                 return;
             }
         }
     TRACE("AABB not provided, generating overself");
-    AABB aabb = {
-        .min = {{INFINITY, INFINITY, INFINITY}},
-        .max = {{-INFINITY, -INFINITY, -INFINITY}}
-    };
-    int vertexCount = darray_get_length(mesh->vertices);
-    for (int i = 0; i < vertexCount; i++) {
-        vec3 position = mesh->vertices[i].position;
-        aabb.min = vec3_min(aabb.min, position);
-        aabb.max = vec3_max(aabb.max, position);
-    }    
-    mesh->aabb.min = aabb.min;
-    mesh->aabb.max = aabb.max;
-}
-
-void calculate_model_AABB(Model* model) {
-    AABB aabb = {
-        .min = {{INFINITY, INFINITY, INFINITY}},
-        .max = {{-INFINITY, -INFINITY, -INFINITY}}
-    };
-    Material* material;
-    hashmap_foreach(model->materials, material) {
-        int meshCount = darray_get_length(material->meshes);
-        for (int i = 0; i < meshCount; i++) {
-            aabb.min = vec3_min(aabb.min, material->meshes[i].aabb.min);
-            aabb.max = vec3_max(aabb.max, material->meshes[i].aabb.max);
-        }
-    }
-    model->aabb = aabb;
+    calculate_mesh_AABB(mesh);
 }
 
 HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCount) {
@@ -188,7 +161,7 @@ HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, H
 
 Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
     char* traceStr = darray_create(char);
-    stringBuilderConcat(&traceStr, ANSI_COLOR_YELLOW "\b[MODEL_LOADER]" ANSI_RESET_ALL " Creating model \"%s\"\n", gltf_file);
+    stringBuilderConcat(&traceStr, ANSI_COLOR_YELLOW "\b[GLTF_LOADER]" ANSI_RESET_ALL " Loading model \"%s\"\n", gltf_file);
 
     cgltf_options options = {};
     cgltf_data* gltf_data;
@@ -234,7 +207,7 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
                     stringBuilderConcat(&traceStr, "Vertices   = %d\n", primitive->attributes[0].data->count);
                     mesh.vertices = load_vertices(primitive->attributes, primitive->attributes_count);
                     if (mesh.vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
-                    calculate_mesh_AABB(&mesh, primitive->attributes, primitive->attributes_count);
+                    find_mesh_AABB(&mesh, primitive->attributes, primitive->attributes_count);
 
                     Material* material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
                     darray_push(material->meshes, mesh);

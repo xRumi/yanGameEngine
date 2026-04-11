@@ -43,8 +43,8 @@ typedef struct Texture {
 typedef struct Mesh {
     Vertex* vertices;
     uint32_t* indices;
-    AABB aabb;
     void* meshRendererStateRef;
+    Collider collider;
 } Mesh;
 
 typedef struct Material {
@@ -65,8 +65,8 @@ typedef struct Model {
     const char* name;
     HashMap* images;
     HashMap* materials;
-    AABB aabb;
     bool rendererLoaded;
+    Collider collider;
 } Model;
 
 typedef struct ModelMatrix {
@@ -78,10 +78,10 @@ typedef struct ModelMatrix {
 typedef struct Entity {
     uint64_t id;
     Model* model;
-    AABB aabb;
     Transform transform;
     ModelMatrix modelMatrix;
     PhysicsBody* physicsBody;
+    Collider collider;
 } Entity;
 
 #define POINT_LIGHT_MAX_COUNT 32

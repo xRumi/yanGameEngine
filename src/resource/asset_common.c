@@ -22,3 +22,34 @@ Material* create_default_material(HashMap* images) {
     ret->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_ASSET_MANAGER);
     return ret;
 }
+
+void calculate_model_AABB(Model* model) {
+    AABB aabb = {
+        .min = {{INFINITY, INFINITY, INFINITY}},
+        .max = {{-INFINITY, -INFINITY, -INFINITY}}
+    };
+    Material* material;
+    hashmap_foreach(model->materials, material) {
+        int meshCount = darray_get_length(material->meshes);
+        for (int i = 0; i < meshCount; i++) {
+            aabb.min = vec3_min(aabb.min, material->meshes[i].collider.aabb.min);
+            aabb.max = vec3_max(aabb.max, material->meshes[i].collider.aabb.max);
+        }
+    }
+    model->collider.aabb = aabb;
+}
+
+void calculate_mesh_AABB(Mesh* mesh) {
+    AABB aabb = {
+        .min = {{INFINITY, INFINITY, INFINITY}},
+        .max = {{-INFINITY, -INFINITY, -INFINITY}}
+    };
+    int vertexCount = darray_get_length(mesh->vertices);
+    for (int i = 0; i < vertexCount; i++) {
+        vec3 position = mesh->vertices[i].position;
+        aabb.min = vec3_min(aabb.min, position);
+        aabb.max = vec3_max(aabb.max, position);
+    }    
+    mesh->collider.aabb.min = aabb.min;
+    mesh->collider.aabb.max = aabb.max;
+}

@@ -34,7 +34,7 @@ PassiveDelay passiveDelaySet(double delay) {
 bool passiveDelayIsDone(PassiveDelay passiveDelay) {
     return (platformGetTime() - passiveDelay.startTime) >= passiveDelay.delay;
 }
-bool passiveDelayIsDoneThenReset(PassiveDelay* passiveDelay) {
+bool passiveDelayIsDoneIfSoReset(PassiveDelay* passiveDelay) {
     bool isDone = passiveDelayIsDone(*passiveDelay);
     if (isDone) passiveDelayReset(passiveDelay);
     return isDone;

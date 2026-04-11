@@ -2,16 +2,6 @@
 
 uint64_t assetManagerEntityId = 1;
 
-Entity* entityCreate(Model* model) {
-    Entity* entity = memalloc(sizeof(Entity), MEMORY_TAG_ENTITY);
-    entity->id = assetManagerEntityId++;
-    entity->model = model;
-    entity->aabb = model->aabb;
-    entity->transform.scale = (vec3){{1, 1, 1}};
-    entity->modelMatrix.buffers[0] = mat4_identity();
-    entity->modelMatrix.buffers[1] = mat4_identity();
-    return entity;
-}
 void entityTransformSetTranslation(Entity* entity, vec3 translation) {
     entity->transform.translation = translation;
 }
@@ -21,8 +11,9 @@ void entityTransformApply(Entity* entity) {
     mat4 scale = mat4_scale_vec3(entity->transform.scale);
     mat4 model = mat4_mul(translation, mat4_mul(rotation, scale));
 
-    entity->aabb.max = vec3_from_vec4(mat4_mul_vec4(model, vec4_from_vec3(entity->aabb.max, 0)));
-    entity->aabb.min = vec3_from_vec4(mat4_mul_vec4(model, vec4_from_vec3(entity->aabb.min, 0)));
+    entity->collider.aabb.max = mat4_mul_vec3(model, entity->model->collider.aabb.max);
+    entity->collider.aabb.min = mat4_mul_vec3(model, entity->model->collider.aabb.min);
+    entity->collider.boundingSphere.center = mat4_mul_vec3(model, entity->model->collider.boundingSphere.center);
 
     entity->modelMatrix.shouldYield = true;
     while (atomic_flag_test_and_set(&entity->modelMatrix.locked) != 0);
@@ -36,7 +27,7 @@ void entityTransformReset(Entity* entity) {
     entity->transform.scale = (vec3){{1, 1, 1}};
     entityTransformApply(entity);
 }
-mat4 entityModelMatrixGet(Entity* entity) {
+mat4 entityGetModelMatrix(Entity* entity) {
     if (!entity->modelMatrix.shouldYield && atomic_flag_test_and_set(&entity->modelMatrix.locked) == 0) {
         mat4 model = entity->modelMatrix.buffers[1];
         atomic_flag_clear(&entity->modelMatrix.locked);
@@ -44,7 +35,6 @@ mat4 entityModelMatrixGet(Entity* entity) {
     }
     return entity->modelMatrix.buffers[0];
 }
-
 Scene* sceneCreate() {
     Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSET_MANAGER);
     scene->camera.sensitivity = 1;
@@ -53,13 +43,23 @@ Scene* sceneCreate() {
     return scene;
 }
 void sceneDestroy(Scene* scene);
-void sceneAddEntity(Scene* scene, Entity* entity) {
+
+Entity* sceneCreateEntity(Scene* scene, Model* model) {
+    Entity* entity = memalloc(sizeof(Entity), MEMORY_TAG_ENTITY);
+    entity->id = assetManagerEntityId++;
+    entity->model = model;
+    entity->collider = model->collider;
+    entity->transform.scale = (vec3){{1, 1, 1}};
+    entity->modelMatrix.buffers[0] = mat4_identity();
+    entity->modelMatrix.buffers[1] = mat4_identity();
     hashmap_put(scene->entities, entity->id, (uint64_t)entity);
+    return entity;
 }
-void sceneRemoveEntity(Scene* scene, Entity* entity) {
+void sceneDestoryEntity(Scene* scene, Entity* entity) {
     hashmap_remove(scene->entities, entity->id);
+    WARN("Entity destory not implemented; todo");
 }
-void sceneEntityTransformApply(Scene* scene) {
+void sceneEntityApplyTransform(Scene* scene) {
     Entity* entity;
     hashmap_foreach(scene->entities, entity) {
         entityTransformApply(entity);
@@ -93,11 +93,11 @@ void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light) {
         }
 }
 
-void sceneEntityPhysicsBodyCreate(Scene* scene, Entity* entity) {
+void sceneEntityCreatePhysicsBody(Scene* scene, Entity* entity) {
     PhysicsBody* physicsBody = memalloc(sizeof(PhysicsBody), MEMORY_TAG_PHYSICS);
     physicsBody->mass = 1;
     physicsBody->inverseMass = 1.0 / physicsBody->mass;
-    physicsBody->aabb = &entity->aabb;
+    physicsBody->collider = &entity->collider;
     darray_push(scene->physicsEngine->bodies, physicsBody);
     entity->physicsBody = physicsBody;
     physicsBody->transform = &entity->transform;

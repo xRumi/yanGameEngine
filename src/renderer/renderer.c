@@ -634,7 +634,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
         if (!model->rendererLoaded) rendererLoadModel(model);
 
         PushConstant0 pushConstant0 = {};
-        pushConstant0.model = entityModelMatrixGet(entity);
+        pushConstant0.model = entityGetModelMatrix(entity);
 
         Material* material;
         hashmap_foreach(model->materials, material) {

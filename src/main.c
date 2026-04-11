@@ -9,43 +9,21 @@ int main() {
     engineInitialize("yanGameEngine - Physics Engine Test", 0, 0, width, height);
     rendererSetFPS(fps);
 
-    Model* boxModel = assetLoadGLTF("./assets/world/models/Cube", "Cube.gltf");
-    Model* terrainModel = assetLoadGLTF("./assets/world/", "terrain.gltf");
-
+    Model* sphereModel = assetGenerateUVSphere(8, 8, 0.08);
     Scene* scene = sceneCreate();
 
-    Entity* box1 = entityCreate(boxModel);
-    Entity* box2 = entityCreate(boxModel);
-    Entity* terrain = entityCreate(terrainModel);
-    
-    entityTransformSetTranslation(box1, (vec3){{0, 3, -5}});
-    entityTransformSetTranslation(box2, (vec3){{0, 0, -5}});
-
-    sceneAddEntity(scene, box1);
-    sceneAddEntity(scene, box2);
-    sceneAddEntity(scene, terrain);
-
-    sceneEntityPhysicsBodyCreate(scene, box1);
-    sceneEntityPhysicsBodyCreate(scene, box2);
-    physicsBodyStaticSet(box2->physicsBody, true);
-
-    PointLight* light = sceneAddPointLight(scene);
-    *light = (PointLight){
-        .ambient = {{.1, .1, .1}},
-        .position = {{0, 5, 0}},
-        .diffuse = {{1, 1, 1}},
-        .linear = 0.007,
-        .quadratic = 0.00098
-    };
+    sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
 
     scene->camera.position = (vec3){{0, 0, 8}};
 
     rendererSceneSet(scene);
 
     bool locked = false;
-    PassiveDelay lKey = passiveDelaySet(0.5);
+    PassiveDelay lKey = passiveDelaySet(0.3);
     PassiveDelay xKey = passiveDelaySet(0.3);
     PassiveDelay escKey = passiveDelaySet(0.3);
+
+    PassiveDelay entityGenDelay = passiveDelaySet(.1);
 
     double startTime = platformGetTime();
     double deltaTime = 0;
@@ -58,7 +36,7 @@ int main() {
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
-        if (platformInputIsKeyDown(KEY_l) && passiveDelayIsDoneThenReset(&lKey)) {
+        if (platformInputIsKeyDown(KEY_l) && passiveDelayIsDoneIfSoReset(&lKey)) {
             if (!locked) {
                 platformPointerHide();
                 platformPointerLock();
@@ -69,15 +47,29 @@ int main() {
                 locked = false;
             }
         }
-        if (platformInputIsKeyDown(KEY_x) && passiveDelayIsDoneThenReset(&xKey)) {
+        if (platformInputIsKeyDown(KEY_x) && passiveDelayIsDoneIfSoReset(&xKey)) {
             rendererWireframeToggle();
         }
-        if (platformInputIsKeyDown(KEY_ESC) && passiveDelayIsDoneThenReset(&escKey)) {
+        if (platformInputIsKeyDown(KEY_ESC) && passiveDelayIsDoneIfSoReset(&escKey)) {
             platformGetPlatformState()->platformWindowClosed = true;
+        }
+
+        if (passiveDelayIsDoneIfSoReset(&entityGenDelay)) {
+            Entity* sphere = sceneCreateEntity(scene, sphereModel);
+            entityTransformSetTranslation(sphere, (vec3){{0, 3, 0}});
+            sceneEntityApplyTransform(scene);
+            sceneEntityCreatePhysicsBody(scene, sphere);
         }
     
         physicsEngineRun(scene->physicsEngine, 1.0 / 120.0);
-        sceneEntityTransformApply(scene);
+        Entity* entity;
+        hashmap_foreach(scene->entities, entity) {
+            entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
+            entity->transform.translation.y = clamp(entity->transform.translation.y, -3, 3);
+            entity->physicsBody->forceAccumulator.x = (rand() % 2 ? 1 : -1)*(rand() % 20);
+            entity->physicsBody->forceAccumulator.y = rand() % 20;
+        }
+        sceneEntityApplyTransform(scene);
 
         platformPullEvent();
         platformSleep(1.0 / fps);

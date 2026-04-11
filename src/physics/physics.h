@@ -13,9 +13,23 @@ typedef struct AABB {
     vec3 max;
 } AABB;
 
+typedef struct BoundingSphere {
+    vec3 center;
+    float radius;
+} BoundingSphere;
+
 typedef enum ColliderType {
     COLLIDER_TYPE_AABB,
+    COLLIDER_TYPE_SPHERE,
+    COLLIDER_TYPE_NONE,
+    COLLIDER_TYPE_MAX
 } ColliderType;
+
+typedef struct Collider {
+    ColliderType type;
+    AABB aabb;
+    BoundingSphere boundingSphere;
+} Collider;
 
 typedef struct PhysicsBody {
     Transform* transform;
@@ -26,8 +40,7 @@ typedef struct PhysicsBody {
 
     vec3 forceAccumulator;
 
-    AABB* aabb;
-    ColliderType colliderType;
+    Collider* collider;
 } PhysicsBody;
 
 typedef struct PhysicsEngine {

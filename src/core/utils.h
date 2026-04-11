@@ -14,6 +14,6 @@ typedef struct PassiveDelay {
 PassiveDelay passiveDelaySet(double delay);
 bool passiveDelayIsDone(PassiveDelay passiveDelay);
 void passiveDelayReset(PassiveDelay* passiveDelay);
-bool passiveDelayIsDoneThenReset(PassiveDelay* passiveDelay);
+bool passiveDelayIsDoneIfSoReset(PassiveDelay* passiveDelay);
 
 void stringBuilderConcat(char** darray, const char* message, ...);
