@@ -41,6 +41,7 @@ typedef struct PhysicsBody {
     vec3 forceAccumulator;
 
     Collider* collider;
+    bool isCollidable;
 } PhysicsBody;
 
 typedef struct PhysicsEngine {
@@ -52,3 +53,6 @@ PhysicsEngine* physicsEngineCreate();
 void physicsEngineRun(PhysicsEngine* engine, float dt);
 void physicsBodyMassSet(PhysicsBody* physicsBody, float mass);
 void physicsBodyStaticSet(PhysicsBody* physicsBody, bool isStatic);
+
+void physicsBodySetCollidable(PhysicsBody* physicsBody, bool isCollidable);
+void physicsBodyAddForce(PhysicsBody* physicsBody, vec3 force);

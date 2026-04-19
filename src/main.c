@@ -23,7 +23,8 @@ int main() {
     PassiveDelay xKey = passiveDelaySet(0.3);
     PassiveDelay escKey = passiveDelaySet(0.3);
 
-    PassiveDelay entityGenDelay = passiveDelaySet(.1);
+    PassiveDelay entityGenDelay = passiveDelaySet(.01);
+    int objectCount = 0;
 
     double startTime = platformGetTime();
     double deltaTime = 0;
@@ -56,18 +57,18 @@ int main() {
 
         if (passiveDelayIsDoneIfSoReset(&entityGenDelay)) {
             Entity* sphere = sceneCreateEntity(scene, sphereModel);
-            entityTransformSetTranslation(sphere, (vec3){{0, 3, 0}});
+            entityTransformSetTranslation(sphere, (vec3){{((rand() % 2 ? 1 : -1) * (rand() % 256) / 256.0)*10, 10, ((rand() % 2 ? 1 : -1) * (rand() % 256) / 256.0)*10}});
             sceneEntityApplyTransform(scene);
             sceneEntityCreatePhysicsBody(scene, sphere);
+            entitySetHidden(sphere, false);
+            objectCount++;
         }
     
         physicsEngineRun(scene->physicsEngine, 1.0 / 120.0);
         Entity* entity;
         hashmap_foreach(scene->entities, entity) {
-            entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
+            // entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
             entity->transform.translation.y = clamp(entity->transform.translation.y, -3, 3);
-            entity->physicsBody->forceAccumulator.x = (rand() % 2 ? 1 : -1)*(rand() % 20);
-            entity->physicsBody->forceAccumulator.y = rand() % 20;
         }
         sceneEntityApplyTransform(scene);
 
@@ -76,4 +77,6 @@ int main() {
     }
 
     engineShutdown();
+
+    WARN("Object Count = %d", objectCount);
 }

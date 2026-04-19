@@ -12,7 +12,7 @@ void applyVelocity(PhysicsBody* physicsBody, float dt) {
     physicsBody->transform->translation = vec3_add(physicsBody->transform->translation, vec3_scale(physicsBody->velocity, dt));
 }
 void applyGravity(PhysicsBody* physicsBody, float gravity) {
-    physicsBody->forceAccumulator = vec3_add(physicsBody->forceAccumulator, (vec3){{0, -gravity, 0}});
+    physicsBodyAddForce(physicsBody, (vec3){{0, -gravity, 0}});
 }
 
 typedef struct CollisionResult {
@@ -24,11 +24,14 @@ CollisionResult resolveCollisionSphereToSphere(BoundingSphere target, BoundingSp
     vec3 towardA = vec3_sub(target.center, other.center);
     float distance = vec3_length(towardA);
     float penetration = (target.radius + other.radius) - distance;
-    if (penetration < 0 || distance == 0) return (CollisionResult){};
-    penetration *= 0.5f;
+    if (penetration < 0) return (CollisionResult){};
+    if (distance == 0) return (CollisionResult){
+        .normal = (vec3){{0, 1, 0}},
+        .penetration = 0.5
+    };
     return (CollisionResult){
         .normal = vec3_normalize(towardA),
-        .penetration = penetration
+        .penetration = penetration * .5f
     };
 }
 
@@ -64,18 +67,16 @@ vec3 resolveCollisionVelocity(vec3 velocity, vec3 normal) {
     return (vec3){};
 }
 
-void resolveCollisions(PhysicsBody* target, PhysicsBody** bodies, float dt, int subSteps) {
-    for (int i = 0; i < subSteps; i++) {
-        PhysicsBody* other;
-        darray_foreach(bodies, other) {
-            if (other == target) continue;
-            CollisionResult collisionResult = resolveCollisionByTypes(target->collider, other->collider);
-            target->velocity = vec3_sub(target->velocity, resolveCollisionVelocity(target->velocity, collisionResult.normal));
-            target->transform->translation = vec3_add(target->transform->translation, vec3_scale(collisionResult.normal, collisionResult.penetration));
-            if (!other->isStatic) {
-                other->velocity = vec3_sub(other->velocity, resolveCollisionVelocity(other->velocity, vec3_neg(collisionResult.normal)));
-                other->transform->translation = vec3_add(other->transform->translation, vec3_scale(vec3_neg(collisionResult.normal), collisionResult.penetration));
-            }
+void resolveCollisions(PhysicsBody* target, PhysicsBody** bodies, float dt) {
+    PhysicsBody* other;
+    darray_foreach(bodies, other) {
+        if (!other->isCollidable || other == target) continue;
+        CollisionResult collisionResult = resolveCollisionByTypes(target->collider, other->collider);
+        target->velocity = vec3_sub(target->velocity, resolveCollisionVelocity(target->velocity, collisionResult.normal));
+        target->transform->translation = vec3_add(target->transform->translation, vec3_scale(collisionResult.normal, collisionResult.penetration));
+        if (!other->isStatic) {
+            other->velocity = vec3_sub(other->velocity, resolveCollisionVelocity(other->velocity, vec3_neg(collisionResult.normal)));
+            other->transform->translation = vec3_add(other->transform->translation, vec3_scale(vec3_neg(collisionResult.normal), collisionResult.penetration));
         }
     }
 }
@@ -94,8 +95,7 @@ void physicsEngineRun(PhysicsEngine* engine, float dt) {
         applyForceAccumulator(physicsBody);
         applyAcceleration(physicsBody, dt);
         applyVelocity(physicsBody, dt);
-        resolveCollisions(physicsBody, engine->bodies, dt, 1);
-        // printf("(%.2f, %.2f, %.2f)\n", physicsBody->transform->translation.x, physicsBody->transform->translation.y, physicsBody->transform->translation.z);
+        if (physicsBody->isCollidable) resolveCollisions(physicsBody, engine->bodies, dt);
     }
 }
 void physicsBodyMassSet(PhysicsBody* physicsBody, float mass) {
@@ -104,4 +104,12 @@ void physicsBodyMassSet(PhysicsBody* physicsBody, float mass) {
 }
 void physicsBodyStaticSet(PhysicsBody* physicsBody, bool isStatic) {
     physicsBody->isStatic = isStatic;
+}
+
+
+void physicsBodySetCollidable(PhysicsBody* physicsBody, bool isCollidable) {
+    physicsBody->isCollidable = isCollidable;
+}
+void physicsBodyAddForce(PhysicsBody* physicsBody, vec3 force) {
+    physicsBody->forceAccumulator = vec3_add(physicsBody->forceAccumulator, force);
 }

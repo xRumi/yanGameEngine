@@ -575,7 +575,7 @@ void rendererLoadMaterial(Material* material) {
     material->materialRendererStateRef = materialRendererState;
 }
 void rendererLoadModel(Model* model) {
-    if (model->rendererLoaded) return;
+    if (model->isRendererReady) return;
     Image* image;
     hashmap_foreach(model->images, image) {
         rendererLoadImage(image);
@@ -589,7 +589,7 @@ void rendererLoadModel(Model* model) {
             rendererLoadMesh(mesh);
         }
     }
-    model->rendererLoaded = true;
+    model->isRendererReady = true;
     TRACE(ANSI_COLOR_MAGENTA "\b[RENDERER]" ANSI_RESET_ALL " Model \"%s\" loaded", model->name);
 }
 
@@ -628,10 +628,12 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     enum PipelineType previousPipelineType = PIPELINE_TYPE_MAX;
+    MeshRendererState* previousMeshRendererState = NULL;
     Entity* entity;
     hashmap_foreach(internalStateRenderer.scene->entities, entity) {
+        if (entity->isHidden) continue;
         Model* model = entity->model;
-        if (!model->rendererLoaded) rendererLoadModel(model);
+        if (!model->isRendererReady) rendererLoadModel(model);
 
         PushConstant0 pushConstant0 = {};
         pushConstant0.model = entityGetModelMatrix(entity);
@@ -645,19 +647,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
             if (previousPipelineType != currentPipelineType) {
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
                 updateFrameUBO(&pipelineState, deltaTime);
-                previousPipelineType = currentPipelineType;
-            }
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
-            vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
-
-            int meshCount = darray_get_length(material->meshes);
-            for (int j = 0; j < meshCount; j++) {
-                Mesh mesh = material->meshes[j];
-                MeshRendererState* meshRendererState = mesh.meshRendererStateRef;
-
-                VkDeviceSize offsets[] = {0};
-                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState->vertexBuffer, offsets);
-                vkCmdBindIndexBuffer(commandBuffer, meshRendererState->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
                 switch (currentPipelineType) {
                     case PIPELINE_TYPE_DEFAULT: {
                         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
@@ -665,6 +655,19 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                     }
                     case PIPELINE_TYPE_WIREFRAME:
                     case PIPELINE_TYPE_MAX: break;
+                }
+                previousPipelineType = currentPipelineType;
+            }
+            vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
+            int meshCount = darray_get_length(material->meshes);
+            for (int j = 0; j < meshCount; j++) {
+                Mesh mesh = material->meshes[j];
+                MeshRendererState* meshRendererState = mesh.meshRendererStateRef;
+                VkDeviceSize offsets[] = {0};
+                if (previousMeshRendererState != meshRendererState) {
+                    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState->vertexBuffer, offsets);
+                    vkCmdBindIndexBuffer(commandBuffer, meshRendererState->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                    previousMeshRendererState = meshRendererState;
                 }
                 vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh.indices), 1, 0, 0, 0);
             }

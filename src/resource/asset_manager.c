@@ -2,6 +2,10 @@
 
 uint64_t assetManagerEntityId = 1;
 
+void entitySetHidden(Entity* entity, bool isHidden) {
+    entity->isHidden = isHidden;
+}
+
 void entityTransformSetTranslation(Entity* entity, vec3 translation) {
     entity->transform.translation = translation;
 }
@@ -35,6 +39,10 @@ mat4 entityGetModelMatrix(Entity* entity) {
     }
     return entity->modelMatrix.buffers[0];
 }
+void entityPhysicsBodyAddForce(Entity* entity, vec3 force) {
+    if (entity->physicsBody) physicsBodyAddForce(entity->physicsBody, force);
+}
+
 Scene* sceneCreate() {
     Scene* scene = memalloc(sizeof(Scene), MEMORY_TAG_ASSET_MANAGER);
     scene->camera.sensitivity = 1;
@@ -49,6 +57,7 @@ Entity* sceneCreateEntity(Scene* scene, Model* model) {
     entity->id = assetManagerEntityId++;
     entity->model = model;
     entity->collider = model->collider;
+    entity->isHidden = true;
     entity->transform.scale = (vec3){{1, 1, 1}};
     entity->modelMatrix.buffers[0] = mat4_identity();
     entity->modelMatrix.buffers[1] = mat4_identity();

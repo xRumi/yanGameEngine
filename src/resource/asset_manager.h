@@ -5,10 +5,12 @@
 #include "math_types.h"
 #include "darray.h"
 
+void entitySetHidden(Entity* entity, bool isHidden);
 void entityTransformSetTranslation(Entity* entity, vec3 a);
 void entityTransformApply(Entity* entity);
 void entityTransformReset(Entity* entity);
 mat4 entityGetModelMatrix(Entity* entity);
+void entityPhysicsBodyAddForce(Entity* entity, vec3 force);
 
 Scene* sceneCreate();
 void sceneDestroy(Scene* scene);

@@ -65,7 +65,7 @@ typedef struct Model {
     const char* name;
     HashMap* images;
     HashMap* materials;
-    bool rendererLoaded;
+    bool isRendererReady;
     Collider collider;
 } Model;
 
@@ -82,6 +82,7 @@ typedef struct Entity {
     ModelMatrix modelMatrix;
     PhysicsBody* physicsBody;
     Collider collider;
+    bool isHidden;
 } Entity;
 
 #define POINT_LIGHT_MAX_COUNT 32
