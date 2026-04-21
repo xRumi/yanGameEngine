@@ -26,17 +26,7 @@ int main() {
     PassiveDelay entityGenDelay = passiveDelaySet(.1);
     int objectCount = 0;
 
-    double startTime = platformGetTime();
-    double deltaTime = 0;
-    double currentTime, lastTime = platformGetTime();
-
     while (!platformGetPlatformState()->platformWindowClosed) {
-        double elapsedTime = platformGetTime() - startTime;
-        (void) elapsedTime, (void)deltaTime;
-        currentTime = platformGetTime();
-        deltaTime = currentTime - lastTime;
-        lastTime = currentTime;
-
         if (platformInputIsKeyDown(KEY_l) && passiveDelayIsDoneIfSoReset(&lKey)) {
             if (!locked) {
                 platformPointerHide();
@@ -76,7 +66,6 @@ int main() {
         sceneEntityApplyTransform(scene);
         platformSleep(1.0 / fps);
     }
-
     engineShutdown();
 
     WARN("Object Count = %d", objectCount);

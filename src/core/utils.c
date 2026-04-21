@@ -43,6 +43,19 @@ void passiveDelayReset(PassiveDelay* passiveDelay) {
     passiveDelay->startTime = platformGetTime();
 }
 
+TimeManager timeManagerStart() {
+    return (TimeManager) {
+        .startTime = platformGetTime(),
+        .lastTime = platformGetTime(),
+    };
+}
+void timeManagerUpdate(TimeManager* timeManager) {
+    double currentTime = platformGetTime();
+    timeManager->elapsedTime = currentTime - timeManager->startTime;
+    timeManager->deltaTime = currentTime - timeManager->lastTime;
+    timeManager->lastTime = currentTime;
+}
+
 void stringBuilderConcat(char** darray, const char* message, ...) {
     const int messageLimit = 32768;
     char output[messageLimit];

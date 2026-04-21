@@ -736,17 +736,14 @@ void drawFrame(double deltaTime) {
 }
 
 void mainLoop() {
-    double deltaTime = 0;
-    double currentTime, lastTime = platformGetTime();
+    TimeManager timeManager = timeManagerStart();
 
     while (!platformGetPlatformState()->platformWindowClosed) {
-        currentTime = platformGetTime();
-        deltaTime = currentTime - lastTime;
-        lastTime = currentTime;
+        timeManagerUpdate(&timeManager);
 
-        if (internalStateRenderer.scene) drawFrame(deltaTime);
+        if (internalStateRenderer.scene) drawFrame(timeManager.deltaTime);
     
-        double frameTime = platformGetTime() - currentTime;
+        double frameTime = platformGetTime() - timeManager.lastTime;
         if (frameTime < internalStateRenderer.targetFrameTime) {
             double sleepTime = internalStateRenderer.targetFrameTime - frameTime;
             platformSleep(sleepTime);

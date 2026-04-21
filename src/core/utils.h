@@ -18,4 +18,14 @@ bool passiveDelayIsDone(PassiveDelay passiveDelay);
 void passiveDelayReset(PassiveDelay* passiveDelay);
 bool passiveDelayIsDoneIfSoReset(PassiveDelay* passiveDelay);
 
+typedef struct TimeManager {
+    const double startTime;
+    double lastTime;
+    double elapsedTime;
+    double deltaTime;
+} TimeManager;
+
+TimeManager timeManagerStart();
+void timeManagerUpdate(TimeManager* timeManager);
+
 void stringBuilderConcat(char** darray, const char* message, ...);
