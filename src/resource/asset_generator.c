@@ -53,10 +53,7 @@ Model* assetGenerateUVSphere(int slices, int stacks, float radius) {
         }
     }
     calculate_mesh_AABB(&mesh);
-    mesh.collider.boundingSphere = (BoundingSphere){
-        .center = (vec3){{0, 0, 0}},
-        .radius = radius
-    };
+    mesh.collider.radius = radius;
     mesh.collider.type = COLLIDER_TYPE_SPHERE;
     darray_push(material->meshes, mesh);
 

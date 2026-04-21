@@ -107,8 +107,9 @@ void find_mesh_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attr
         if (attributes[i].type == cgltf_attribute_type_position) {
             cgltf_accessor* accessor = attributes[i].data;
             if (accessor->has_max && accessor->has_min) {
-                mesh->collider.aabb.min = (vec3){{accessor->min[0], accessor->min[1], accessor->min[2]}};
-                mesh->collider.aabb.max = (vec3){{accessor->max[0], accessor->max[1], accessor->max[2]}};
+                vec3 min = (vec3){{accessor->min[0], accessor->min[1], accessor->min[2]}};
+                vec3 max = (vec3){{accessor->max[0], accessor->max[1], accessor->max[2]}};
+                mesh->collider.halfDimension = vec3_length(vec3_sub(max, min)) * 0.5;
                 return;
             }
         }

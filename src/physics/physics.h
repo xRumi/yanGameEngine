@@ -9,14 +9,8 @@ typedef struct Transform {
 } Transform;
 
 typedef struct AABB {
-    vec3 min;
-    vec3 max;
+    vec3* center;
 } AABB;
-
-typedef struct BoundingSphere {
-    vec3 center;
-    float radius;
-} BoundingSphere;
 
 typedef enum ColliderType {
     COLLIDER_TYPE_AABB,
@@ -27,8 +21,9 @@ typedef enum ColliderType {
 
 typedef struct Collider {
     ColliderType type;
-    AABB aabb;
-    BoundingSphere boundingSphere;
+    vec3* center;
+    float radius;
+    float halfDimension;
 } Collider;
 
 typedef struct PhysicsBody {

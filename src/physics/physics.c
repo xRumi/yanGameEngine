@@ -1,5 +1,6 @@
 #include "physics.h"
 #include "darray.h"
+#include "utils.h"
 
 void applyForceAccumulator(PhysicsBody* physicsBody) {
     physicsBody->acceleration = vec3_scale(physicsBody->forceAccumulator, physicsBody->inverseMass);
@@ -12,7 +13,7 @@ void applyVelocity(PhysicsBody* physicsBody, float dt) {
     physicsBody->transform->translation = vec3_add(physicsBody->transform->translation, vec3_scale(physicsBody->velocity, dt));
 }
 void applyGravity(PhysicsBody* physicsBody, float gravity) {
-    physicsBodyAddForce(physicsBody, (vec3){{0, -gravity, 0}});
+    physicsBodyAddForce(physicsBody, (vec3){{0, -gravity * physicsBody->mass, 0}});
 }
 
 typedef struct CollisionResult {
@@ -20,63 +21,57 @@ typedef struct CollisionResult {
     float penetration;
 } CollisionResult;
 
-CollisionResult resolveCollisionSphereToSphere(BoundingSphere target, BoundingSphere other) {
-    vec3 towardA = vec3_sub(target.center, other.center);
-    float distance = vec3_length(towardA);
-    float penetration = (target.radius + other.radius) - distance;
-    if (penetration < 0) return (CollisionResult){};
-    if (distance == 0) return (CollisionResult){
-        .normal = (vec3){{0, 1, 0}},
-        .penetration = 0.5
-    };
-    return (CollisionResult){
-        .normal = vec3_normalize(towardA),
-        .penetration = penetration * .5f
-    };
-}
-
-CollisionResult resolveCollisionAabbToAabb(AABB target, AABB other) {
-    if ((target.min.x <= other.max.x && target.max.x >= other.min.x) &&
-        (target.min.y <= other.max.y && target.max.y >= other.min.y) &&
-        (target.min.z <= other.max.z && target.max.z >= other.min.z)) {
-        vec3 centerA = vec3_scale(vec3_add(target.min, target.max), 0.5);
-        vec3 centerB = vec3_scale(vec3_add(other.min, other.max), 0.5);
-        vec3 towardA = vec3_sub(centerA, centerB);
-        vec3 overlap = {{
-            MIN(target.max.x, other.max.x) - MAX(target.min.x, other.min.x),
-            MIN(target.max.y, other.max.y) - MAX(target.min.y, other.min.y),
-            MIN(target.max.z, other.max.z) - MAX(target.min.z, other.min.z),
-        }};
-        return (CollisionResult) {
-            .normal = vec3_normalize(towardA),
-            .penetration = overlap.y
+bool resolveCollisionSphereToSphere(Collider* target, Collider* other, CollisionResult* collisionResult) {
+    vec3 towardOther = vec3_sub(*other->center, *target->center);
+    float totalRadius = target->radius + other->radius;
+    float distance = vec3_length(towardOther);
+    if (distance > totalRadius) return false;
+    if (distance < 1e-7) {
+        WARN("DISTANCE = %f", distance);
+        *collisionResult = (CollisionResult){
+            .normal = (vec3){{0, 1, 0}},
+            .penetration = totalRadius
         };
+        return true;
     }
-    return (CollisionResult){};
+    float penetration = totalRadius - distance;
+    *collisionResult = (CollisionResult){
+        .normal = vec3_normalize(towardOther),
+        .penetration = penetration
+    };
+    return true;
 }
 
-CollisionResult resolveCollisionByTypes(Collider* target, Collider* other) {
-    if (target->type == COLLIDER_TYPE_AABB && other->type == COLLIDER_TYPE_AABB) return resolveCollisionAabbToAabb(target->aabb, other->aabb);
-    if (target->type == COLLIDER_TYPE_SPHERE && other->type == COLLIDER_TYPE_SPHERE) return resolveCollisionSphereToSphere(target->boundingSphere, other->boundingSphere);
-    return (CollisionResult){};
+bool resolveCollisionAabbToAabb(Collider* target, Collider* other, CollisionResult* collisionResult) {
+    return false;
+}
+
+bool resolveCollisionByTypes(Collider* target, Collider* other, CollisionResult* collisionResult) {
+    if (target->type == COLLIDER_TYPE_AABB && other->type == COLLIDER_TYPE_AABB) return resolveCollisionAabbToAabb(target, other, collisionResult);
+    if (target->type == COLLIDER_TYPE_SPHERE && other->type == COLLIDER_TYPE_SPHERE) return resolveCollisionSphereToSphere(target, other, collisionResult);
+    return false;
 }
 
 vec3 resolveCollisionVelocity(vec3 velocity, vec3 normal) {
     float dot = vec3_dot(velocity, normal);
-    if (dot < 0) return vec3_scale(normal, dot);
-    return (vec3){};
+    if (dot > 0) return vec3_sub(velocity, vec3_scale(normal, dot));
+    return velocity;
+}
+vec3 resolveCollisionTranslation(vec3 translation, vec3 normal, float penetration) {
+    return vec3_sub(translation, vec3_scale(normal, penetration));
 }
 
 void resolveCollisions(PhysicsBody* target, PhysicsBody** bodies, float dt) {
     PhysicsBody* other;
     darray_foreach(bodies, other) {
         if (!other->isCollidable || other == target) continue;
-        CollisionResult collisionResult = resolveCollisionByTypes(target->collider, other->collider);
-        target->velocity = vec3_sub(target->velocity, resolveCollisionVelocity(target->velocity, collisionResult.normal));
-        target->transform->translation = vec3_add(target->transform->translation, vec3_scale(collisionResult.normal, collisionResult.penetration));
+        CollisionResult collisionResult = {};
+        if (!resolveCollisionByTypes(target->collider, other->collider, &collisionResult)) continue;
+        target->velocity = resolveCollisionVelocity(target->velocity, collisionResult.normal);
+        target->transform->translation = resolveCollisionTranslation(target->transform->translation, collisionResult.normal, collisionResult.penetration);
         if (!other->isStatic) {
-            other->velocity = vec3_sub(other->velocity, resolveCollisionVelocity(other->velocity, vec3_neg(collisionResult.normal)));
-            other->transform->translation = vec3_add(other->transform->translation, vec3_scale(vec3_neg(collisionResult.normal), collisionResult.penetration));
+            other->velocity = resolveCollisionVelocity(other->velocity, vec3_neg(collisionResult.normal));
+            other->transform->translation = resolveCollisionTranslation(other->transform->translation, vec3_neg(collisionResult.normal), collisionResult.penetration);
         }
     }
 }
@@ -105,8 +100,6 @@ void physicsBodyMassSet(PhysicsBody* physicsBody, float mass) {
 void physicsBodyStaticSet(PhysicsBody* physicsBody, bool isStatic) {
     physicsBody->isStatic = isStatic;
 }
-
-
 void physicsBodySetCollidable(PhysicsBody* physicsBody, bool isCollidable) {
     physicsBody->isCollidable = isCollidable;
 }

@@ -471,7 +471,8 @@ void createDescriptorPool() {
     }
 }
 
-void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
+void updateFrameUBO(double deltaTime) {
+    platformPullEvent();
     double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
     (void)elapsedTime;
 
@@ -501,8 +502,11 @@ void updateFrameUBO(PipelineState* pipelineState, double deltaTime) {
     internalStateRenderer.scene->frameUBO.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
     internalStateRenderer.scene->frameUBO.cameraPosition = vec4_from_vec3(internalStateRenderer.scene->camera.position, 0);
 
-    memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->frameUBO, sizeof(FrameUBO));
-    memcpy(pipelineState->lightUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->lightUBO, sizeof(LightUBO));
+    PipelineState* pipelineState;
+    darray_foreach_pointer(internalStateRenderer.pipelineStates, pipelineState) {
+        memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->frameUBO, sizeof(FrameUBO));
+        memcpy(pipelineState->lightUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->lightUBO, sizeof(LightUBO));
+    }
 }
 
 void rendererLoadMesh(Mesh* mesh) {
@@ -627,6 +631,8 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     scissor.extent = internalStateRenderer.swapchainImageExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    updateFrameUBO(deltaTime);
+
     enum PipelineType previousPipelineType = PIPELINE_TYPE_MAX;
     MeshRendererState* previousMeshRendererState = NULL;
     Entity* entity;
@@ -646,7 +652,6 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
             PipelineState pipelineState = internalStateRenderer.pipelineStates[currentPipelineType];
             if (previousPipelineType != currentPipelineType) {
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
-                updateFrameUBO(&pipelineState, deltaTime);
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
                 switch (currentPipelineType) {
                     case PIPELINE_TYPE_DEFAULT: {

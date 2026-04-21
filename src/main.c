@@ -14,7 +14,7 @@ int main() {
 
     sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
 
-    scene->camera.position = (vec3){{0, 0, 8}};
+    sceneCameraSetPosition(scene, (vec3){{0, 0, 8}});
 
     rendererSceneSet(scene);
 
@@ -23,7 +23,7 @@ int main() {
     PassiveDelay xKey = passiveDelaySet(0.3);
     PassiveDelay escKey = passiveDelaySet(0.3);
 
-    PassiveDelay entityGenDelay = passiveDelaySet(.01);
+    PassiveDelay entityGenDelay = passiveDelaySet(.1);
     int objectCount = 0;
 
     double startTime = platformGetTime();
@@ -55,24 +55,25 @@ int main() {
             platformGetPlatformState()->platformWindowClosed = true;
         }
 
-        if (passiveDelayIsDoneIfSoReset(&entityGenDelay)) {
+        if (passiveDelayIsDoneIfSoReset(&entityGenDelay) && objectCount < 100) {
             Entity* sphere = sceneCreateEntity(scene, sphereModel);
-            entityTransformSetTranslation(sphere, (vec3){{((rand() % 2 ? 1 : -1) * (rand() % 256) / 256.0)*10, 10, ((rand() % 2 ? 1 : -1) * (rand() % 256) / 256.0)*10}});
+            entityTransformSetTranslation(sphere, (vec3){{-3, 3, 0}});
             sceneEntityApplyTransform(scene);
             sceneEntityCreatePhysicsBody(scene, sphere);
+            physicsBodySetCollidable(sphere->physicsBody, true);
+            entityPhysicsBodyAddForce(sphere, (vec3){{600}});
             entitySetHidden(sphere, false);
             objectCount++;
         }
-    
         physicsEngineRun(scene->physicsEngine, 1.0 / 120.0);
         Entity* entity;
         hashmap_foreach(scene->entities, entity) {
-            // entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
-            entity->transform.translation.y = clamp(entity->transform.translation.y, -3, 3);
+            entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
+            entity->transform.translation.y = MAX(entity->transform.translation.y, -3);
+            if (entity->transform.translation.y == -3) entity->physicsBody->velocity.y = 0;
+            if (entity->transform.translation.x == -3 || entity->transform.translation.x == 3) entity->physicsBody->velocity.x = -entity->physicsBody->velocity.x;
         }
         sceneEntityApplyTransform(scene);
-
-        platformPullEvent();
         platformSleep(1.0 / fps);
     }
 

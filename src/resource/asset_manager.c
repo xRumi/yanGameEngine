@@ -15,10 +15,6 @@ void entityTransformApply(Entity* entity) {
     mat4 scale = mat4_scale_vec3(entity->transform.scale);
     mat4 model = mat4_mul(translation, mat4_mul(rotation, scale));
 
-    entity->collider.aabb.max = mat4_mul_vec3(model, entity->model->collider.aabb.max);
-    entity->collider.aabb.min = mat4_mul_vec3(model, entity->model->collider.aabb.min);
-    entity->collider.boundingSphere.center = mat4_mul_vec3(model, entity->model->collider.boundingSphere.center);
-
     entity->modelMatrix.shouldYield = true;
     while (atomic_flag_test_and_set(&entity->modelMatrix.locked) != 0);
     entity->modelMatrix.buffers[1] = model;
@@ -56,11 +52,12 @@ Entity* sceneCreateEntity(Scene* scene, Model* model) {
     Entity* entity = memalloc(sizeof(Entity), MEMORY_TAG_ENTITY);
     entity->id = assetManagerEntityId++;
     entity->model = model;
-    entity->collider = model->collider;
     entity->isHidden = true;
     entity->transform.scale = (vec3){{1, 1, 1}};
     entity->modelMatrix.buffers[0] = mat4_identity();
     entity->modelMatrix.buffers[1] = mat4_identity();
+    entity->collider = model->collider;
+    entity->collider.center = &entity->transform.translation;
     hashmap_put(scene->entities, entity->id, (uint64_t)entity);
     return entity;
 }
@@ -100,6 +97,9 @@ void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light) {
             scene->lightUBO.directionalLightCount--;
             break;
         }
+}
+void sceneCameraSetPosition(Scene* scene, vec3 position) {
+    scene->camera.position = position;
 }
 
 void sceneEntityCreatePhysicsBody(Scene* scene, Entity* entity) {

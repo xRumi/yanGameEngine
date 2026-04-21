@@ -21,6 +21,7 @@ PointLight* sceneAddPointLight(Scene* scene);
 DirectionalLight* sceneAddDirectionalLight(Scene* scene);
 void sceneRemovePointLight(Scene* scene, PointLight* light);
 void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light);
+void sceneCameraSetPosition(Scene* scene, vec3 position);
 
 void sceneEntityCreatePhysicsBody(Scene* scene, Entity* entity);
 

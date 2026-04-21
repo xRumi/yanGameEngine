@@ -3,6 +3,8 @@
 #include "defines.h"
 #include "darray.h"
 
+#define DEBUG_vec3(v) DEBUG("(%.2f, %.2f, %.2f)", v.x, v.y, v.z)
+
 char* readFile(const char* filename);
 float clamp(float val, float min, float max);
 

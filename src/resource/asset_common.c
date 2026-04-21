@@ -24,32 +24,25 @@ Material* create_default_material(HashMap* images) {
 }
 
 void calculate_model_AABB(Model* model) {
-    AABB aabb = {
-        .min = {{INFINITY, INFINITY, INFINITY}},
-        .max = {{-INFINITY, -INFINITY, -INFINITY}}
-    };
+    float halfDimension = 0;
     Material* material;
     hashmap_foreach(model->materials, material) {
         int meshCount = darray_get_length(material->meshes);
         for (int i = 0; i < meshCount; i++) {
-            aabb.min = vec3_min(aabb.min, material->meshes[i].collider.aabb.min);
-            aabb.max = vec3_max(aabb.max, material->meshes[i].collider.aabb.max);
+            halfDimension = MAX(halfDimension, material->meshes[i].collider.halfDimension);
         }
     }
-    model->collider.aabb = aabb;
+    model->collider.halfDimension = halfDimension;
 }
 
 void calculate_mesh_AABB(Mesh* mesh) {
-    AABB aabb = {
-        .min = {{INFINITY, INFINITY, INFINITY}},
-        .max = {{-INFINITY, -INFINITY, -INFINITY}}
-    };
+    vec3 min = {{INFINITY, INFINITY, INFINITY}};
+    vec3 max = {{-INFINITY, -INFINITY, -INFINITY}};
     int vertexCount = darray_get_length(mesh->vertices);
     for (int i = 0; i < vertexCount; i++) {
         vec3 position = mesh->vertices[i].position;
-        aabb.min = vec3_min(aabb.min, position);
-        aabb.max = vec3_max(aabb.max, position);
-    }    
-    mesh->collider.aabb.min = aabb.min;
-    mesh->collider.aabb.max = aabb.max;
+        min = vec3_min(min, position);
+        max = vec3_max(max, position);
+    }
+    mesh->collider.halfDimension = vec3_length(vec3_sub(max, min)) * 0.5;
 }
