@@ -5,7 +5,7 @@ const char* instanceLayers[] = {"VK_LAYER_KHRONOS_validation"};
 const char* instanceExtensions[] = {VK_KHR_DISPLAY_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME};
 const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE1_EXTENSION_NAME};
 
-extern int platformWindowClosed;
+extern int isWindowClosed;
 RendererState internalStateRenderer;
 
 void createInstance() {
@@ -277,7 +277,6 @@ void createSwapchain() {
     vkGetSwapchainImagesKHR(internalStateRenderer.device, internalStateRenderer.swapchain, &swapchainImageCount, NULL);
     internalStateRenderer.swapchainImages = darray_create_reserve(VkImage, swapchainImageCount);
     vkGetSwapchainImagesKHR(internalStateRenderer.device, internalStateRenderer.swapchain, &swapchainImageCount, internalStateRenderer.swapchainImages);
-    TRACE("Swapchain image count: %d", swapchainImageCount);
     
     internalStateRenderer.swapchainImageFormat = format.format;
     internalStateRenderer.swapchainImageExtent = extent;
@@ -685,13 +684,41 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     }
 }
 
+void cleanupSwapchain() {
+    vkDestroyImageView(internalStateRenderer.device, internalStateRenderer.colorImageView, NULL);
+    vkDestroyImage(internalStateRenderer.device, internalStateRenderer.colorImage, NULL);
+    vkFreeMemory(internalStateRenderer.device, internalStateRenderer.colorImageMemory, NULL);
+    vkDestroyImageView(internalStateRenderer.device, internalStateRenderer.depthImageView, NULL);
+    vkDestroyImage(internalStateRenderer.device, internalStateRenderer.depthImage, NULL);
+    vkFreeMemory(internalStateRenderer.device, internalStateRenderer.depthImageMemory, NULL);
+    darray_foreach_inline_decl(internalStateRenderer.framebuffers, VkFramebuffer, framebuffer)
+        vkDestroyFramebuffer(internalStateRenderer.device, framebuffer, NULL);
+    darray_foreach_inline_decl(internalStateRenderer.swapchainImageViews, VkImageView, imageView)
+        vkDestroyImageView(internalStateRenderer.device, imageView, NULL);
+    vkDestroySwapchainKHR(internalStateRenderer.device, internalStateRenderer.swapchain, NULL);
+}
+void recreateSwapchain() {
+    PlatformState* platformState = platformGetPlatformState();
+    while (platformState->width == 0 || platformState->height == 0) {
+        ERROR("Minimized, not implemented");
+    }
+    vkDeviceWaitIdle(internalStateRenderer.device);
+
+    cleanupSwapchain();
+    
+    createSwapchain();
+    createColorResources();
+    createDepthResources();
+    createFramebuffers();
+}
+
 void drawFrame(double deltaTime) {
     vkWaitForFences(internalStateRenderer.device, 1, &internalStateRenderer.inFlightFences[internalStateRenderer.currentFrame], VK_TRUE, UINT32_MAX);
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(internalStateRenderer.device, internalStateRenderer.swapchain, UINT32_MAX, internalStateRenderer.imageAvailableSemaphores[internalStateRenderer.currentFrame], VK_NULL_HANDLE, &imageIndex);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // recreateSwapchain();
-        WARN("Need to recreate swapchain but not implemented");
+    if (platformGetPlatformState()->isWindowResized || result == VK_ERROR_OUT_OF_DATE_KHR) {
+        recreateSwapchain();
+        platformGetPlatformState()->isWindowResized = false;
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         FATAL("Failed to acquire next swapchain image");
@@ -724,10 +751,9 @@ void drawFrame(double deltaTime) {
     presentInfo.pResults = NULL;
 
     result = vkQueuePresentKHR(internalStateRenderer.presentQueue, &presentInfo);
-    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR || internalStateRenderer.framebufferResized) {
-        internalStateRenderer.framebufferResized = false;
-        // recreateSwapchain();
-        WARN("Need to recreate swapchain but not implemented");
+    if (platformGetPlatformState()->isWindowResized || result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
+        recreateSwapchain();
+        platformGetPlatformState()->isWindowResized = false;
         return;
     } else if (result != VK_SUCCESS) {
         FATAL("Failed to present swapchain image");
@@ -738,7 +764,7 @@ void drawFrame(double deltaTime) {
 void mainLoop() {
     TimeManager timeManager = timeManagerStart();
 
-    while (!platformGetPlatformState()->platformWindowClosed) {
+    while (!platformGetPlatformState()->isWindowClosed) {
         timeManagerUpdate(&timeManager);
 
         if (internalStateRenderer.scene) drawFrame(timeManager.deltaTime);

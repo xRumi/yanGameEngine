@@ -96,12 +96,15 @@ const struct xdg_surface_listener xdg_surface_listener = {
     .configure = xdg_surface_configure
 };
 
-
 void xdg_toplevel_configure(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height, struct wl_array* states) {
-
+    if (platformState.resizeSupportEnabled && width && height && (platformState.width != width || platformState.height != height)) {
+        platformState.width = width;
+        platformState.height = height;
+        platformState.isWindowResized = true;
+    }
 }
 void xdg_toplevel_close(void* data, struct xdg_toplevel* xdg_toplevel) {
-    platformState.platformWindowClosed = 1;
+    platformState.isWindowClosed = 1;
     TRACE("Window closed");
 }
 void xdg_toplevel_configure_bounds(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height) {
@@ -370,6 +373,15 @@ void platformPointerHide() {
 void platformPointerUnhide() {
     internalStatePlatform.hide_cursor = false;
     // TODO: show cursor properly
+}
+
+void platformWindowSetResizeSupport(bool enable) {
+    platformState.resizeSupportEnabled = enable;
+}
+
+void platformWindowSetFullScreen(bool fullscreen) {
+   if (fullscreen) xdg_toplevel_set_fullscreen(internalStatePlatform.xdg_toplevel, NULL);
+   else xdg_toplevel_unset_fullscreen(internalStatePlatform.xdg_toplevel);
 }
 
 bool platformWindowIsFocused() {

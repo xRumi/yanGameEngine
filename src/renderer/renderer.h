@@ -104,7 +104,6 @@ typedef struct RendererState {
 
     uint32_t currentFrame;
 
-    bool framebufferResized;
     bool rendererReady;
     bool useWireframe;
 

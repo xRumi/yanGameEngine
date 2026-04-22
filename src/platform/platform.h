@@ -6,7 +6,9 @@ typedef struct PlatformState {
     void* surface;
     uint32_t width;
     uint32_t height;
-    bool platformWindowClosed;
+    bool isWindowClosed;
+    bool isWindowResized;
+    bool resizeSupportEnabled;
 } PlatformState;
 
 typedef enum KeyboardInputMap {
@@ -56,6 +58,8 @@ bool platformPointerIsLocked();
 void platformPointerHide();
 void platformPointerUnhide();
 
+void platformWindowSetResizeSupport(bool enable);
+void platformWindowSetFullScreen(bool fullscreen);
 bool platformWindowIsFocused();
 
 uint64_t platformThreadCreate(void*(*fun)(void*), void* arg);

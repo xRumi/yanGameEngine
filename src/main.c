@@ -26,7 +26,7 @@ int main() {
     PassiveDelay entityGenDelay = passiveDelaySet(.1);
     int objectCount = 0;
 
-    while (!platformGetPlatformState()->platformWindowClosed) {
+    while (!platformGetPlatformState()->isWindowClosed) {
         if (platformInputIsKeyDown(KEY_l) && passiveDelayIsDoneIfSoReset(&lKey)) {
             if (!locked) {
                 platformPointerHide();
@@ -42,7 +42,7 @@ int main() {
             rendererWireframeToggle();
         }
         if (platformInputIsKeyDown(KEY_ESC) && passiveDelayIsDoneIfSoReset(&escKey)) {
-            platformGetPlatformState()->platformWindowClosed = true;
+            platformGetPlatformState()->isWindowClosed = true;
         }
 
         if (passiveDelayIsDoneIfSoReset(&entityGenDelay) && objectCount < 100) {
@@ -61,7 +61,7 @@ int main() {
             entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
             entity->transform.translation.y = MAX(entity->transform.translation.y, -3);
             if (entity->transform.translation.y == -3) entity->physicsBody->velocity.y = 0;
-            if (entity->transform.translation.x == -3 || entity->transform.translation.x == 3) entity->physicsBody->velocity.x = -entity->physicsBody->velocity.x;
+            if (entity->transform.translation.x == -3 || entity->transform.translation.x == 3) entity->physicsBody->velocity.x *= -1;
         }
         sceneEntityApplyTransform(scene);
         platformSleep(1.0 / fps);
