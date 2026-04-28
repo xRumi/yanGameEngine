@@ -82,6 +82,13 @@ vec3 vec3_max(vec3 a, vec3 b) {
     }};
 }
 
+vec3 vec3_lerp(vec3 a, vec3 b, float t) {
+    return vec3_add(a, vec3_scale(vec3_sub(b, a), t));
+}
+float scaler_lerp(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+
 mat4 mat4_identity() {
     return (mat4){{
         1, 0, 0, 0,

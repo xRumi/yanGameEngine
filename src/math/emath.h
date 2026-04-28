@@ -19,6 +19,9 @@ float vec3_dot(vec3 a, vec3 b);
 float vec3_length_sqr(vec3 a);
 float vec3_length(vec3 a);
 
+vec3 vec3_lerp(vec3 a, vec3 b, float t);
+float scaler_lerp(float a, float b, float t);
+
 mat4 mat4_identity();
 mat4 mat4_translation(float x, float y, float z);
 mat4 mat4_translation_vec3(vec3 a);
