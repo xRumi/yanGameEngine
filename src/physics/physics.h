@@ -8,10 +8,6 @@ typedef struct Transform {
     vec3 scale;
 } Transform;
 
-typedef struct AABB {
-    vec3* center;
-} AABB;
-
 typedef enum ColliderType {
     COLLIDER_TYPE_AABB,
     COLLIDER_TYPE_SPHERE,
@@ -30,13 +26,13 @@ typedef struct PhysicsBody {
     Transform* transform;
     vec3 velocity;
     vec3 acceleration;
-    float mass, inverseMass;
-    bool isStatic;
-
     vec3 forceAccumulator;
+    float mass;
+    float massInverse;
 
     Collider* collider;
     bool isCollidable;
+    bool isStatic;
 } PhysicsBody;
 
 typedef struct PhysicsEngine {

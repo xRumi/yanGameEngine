@@ -105,7 +105,7 @@ void sceneCameraSetPosition(Scene* scene, vec3 position) {
 void sceneEntityCreatePhysicsBody(Scene* scene, Entity* entity) {
     PhysicsBody* physicsBody = memalloc(sizeof(PhysicsBody), MEMORY_TAG_PHYSICS);
     physicsBody->mass = 1;
-    physicsBody->inverseMass = 1.0 / physicsBody->mass;
+    physicsBody->massInverse = 1.0 / physicsBody->mass;
     physicsBody->collider = &entity->collider;
     darray_push(scene->physicsEngine->bodies, physicsBody);
     entity->physicsBody = physicsBody;

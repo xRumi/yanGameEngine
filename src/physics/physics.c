@@ -3,7 +3,7 @@
 #include "utils.h"
 
 void applyForceAccumulator(PhysicsBody* physicsBody) {
-    physicsBody->acceleration = vec3_scale(physicsBody->forceAccumulator, physicsBody->inverseMass);
+    physicsBody->acceleration = vec3_scale(physicsBody->forceAccumulator, physicsBody->massInverse);
     physicsBody->forceAccumulator = (vec3){};
 }
 void applyAcceleration(PhysicsBody* physicsBody, float dt) {
@@ -95,7 +95,7 @@ void physicsEngineRun(PhysicsEngine* engine, float dt) {
 }
 void physicsBodyMassSet(PhysicsBody* physicsBody, float mass) {
     physicsBody->mass = mass;
-    physicsBody->inverseMass = 1.0 / mass;
+    physicsBody->massInverse = 1.0 / mass;
 }
 void physicsBodyStaticSet(PhysicsBody* physicsBody, bool isStatic) {
     physicsBody->isStatic = isStatic;
