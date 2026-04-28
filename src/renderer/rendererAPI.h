@@ -4,7 +4,7 @@
 #define UP_DIRECTION_VEC3 (vec3){{0, 1, 0}}
 
 void rendererSetFPS(double fps);
-void rendererSceneSet(Scene* scene);
+void rendererSetScene(Scene* scene);
 
 void rendererEnableWireframe();
 void rendererDisableWireframe();

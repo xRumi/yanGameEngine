@@ -6,7 +6,7 @@ extern RendererState internalStateRenderer;
 void rendererSetFPS(double fps) {
     internalStateRenderer.targetFrameTime = 1 / (double)fps;
 }
-void rendererSceneSet(Scene* scene) {
+void rendererSetScene(Scene* scene) {
     internalStateRenderer.scene = scene;
 }
 

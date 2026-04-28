@@ -13,10 +13,8 @@ int main() {
     Scene* scene = sceneCreate();
 
     sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
-
     sceneCameraSetPosition(scene, (vec3){{0, 0, 8}});
-
-    rendererSceneSet(scene);
+    rendererSetScene(scene);
 
     bool locked = false;
     PassiveDelay lKey = passiveDelaySet(0.3);
