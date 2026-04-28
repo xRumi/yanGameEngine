@@ -2,6 +2,7 @@
 #include "asset_types.h"
 #include "hashMap.h"
 #include "utils.h"
+#include <errno.h>
 
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
@@ -102,6 +103,10 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
+void load_model_animations(Mesh* mesh, cgltf_animation* animations, uint32_t animationCount) {
+
+}
+
 void find_mesh_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
     for (int i = 0; i < attributeCount; i++)
         if (attributes[i].type == cgltf_attribute_type_position) {
@@ -169,11 +174,11 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
     char gltf_path[256];
     snprintf(gltf_path, 256, "%s/%s", gltf_dir, gltf_file);
     if (cgltf_parse_file(&options, gltf_path, &gltf_data) != cgltf_result_success) {
-        WARN("Failed to load model \"%s\"", gltf_path);
+        WARN("Failed to load model \"%s\": %s", gltf_path, strerror(errno));
         return NULL;
     }
     if (cgltf_load_buffers(&options, gltf_data, gltf_path) != cgltf_result_success) {
-        WARN("Failed to load model buffers \"%s\"", gltf_path);
+        WARN("Failed to load model buffers \"%s\": %s", gltf_path, strerror(errno));
         return NULL;
     }
 
@@ -181,7 +186,17 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
     model->name = gltf_file;
     model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
     model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
+    model->nodes = darray_create_reserve_memoryTag(Node, gltf_data->nodes_count, MEMORY_TAG_ASSET_MANAGER);
+    model->meshes = darray_create_reserve_memoryTag(Mesh, gltf_data->meshes_count, MEMORY_TAG_ASSET_MANAGER);
     
+
+    for (int k = 0; k < gltf_data->nodes_count; k++) {
+        model->nodes[k].transform = (Transform){
+            .translation = (vec3){{gltf_data->nodes[k].translation[0], gltf_data->nodes[k].translation[1], gltf_data->nodes[k].translation[2]}},
+            .scale = (vec3){{gltf_data->nodes[k].scale[0], gltf_data->nodes[k].scale[1], gltf_data->nodes[k].scale[2]}},
+        };
+    }
+
     stringBuilderConcat(&traceStr, "Image: %d\n", gltf_data->images_count);
     stringBuilderConcat(&traceStr, "Material: %d", gltf_data->materials_count);
 
@@ -210,8 +225,14 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
                     if (mesh.vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
                     find_mesh_AABB(&mesh, primitive->attributes, primitive->attributes_count);
 
-                    Material* material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
-                    darray_push(material->meshes, mesh);
+                    mesh.material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
+                    model->meshes[i] = mesh;
+
+                    for (int k = 0; k < gltf_data->nodes_count; k++) {
+                        if (gltf_data->nodes[k].mesh == &gltf_data->meshes[i] && !model->nodes[k].mesh) {
+                            model->nodes[k].mesh = &model->meshes[i];
+                        }
+                    }
 
                     stringBuilderConcat(&traceStr, "Attributes = ");
                     for (int i = 0; i < primitive->attributes_count; i++)

@@ -12,6 +12,7 @@ Model* assetGenerateUVSphere(int slices, int stacks, float radius) {
     Mesh mesh = {
         .vertices = darray_create_memoryTag(Vertex, MEMORY_TAG_ASSET_MANAGER),
         .indices = darray_create_memoryTag(uint32_t, MEMORY_TAG_ASSET_MANAGER),
+        .material = material
     };
     for (int i = 0; i <= stacks; i++) {
         float v = (float)i / stacks;
@@ -55,7 +56,7 @@ Model* assetGenerateUVSphere(int slices, int stacks, float radius) {
     calculate_mesh_AABB(&mesh);
     mesh.collider.radius = radius;
     mesh.collider.type = COLLIDER_TYPE_SPHERE;
-    darray_push(material->meshes, mesh);
+    darray_push(model->meshes, mesh);
 
     model->collider = mesh.collider;
     calculate_model_AABB(model);

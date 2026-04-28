@@ -9,8 +9,13 @@ int main() {
     engineInitialize("yanGameEngine - Physics Engine Test", 0, 0, width, height);
     rendererSetFPS(fps);
 
-    Model* sphereModel = assetGenerateUVSphere(8, 8, 0.08);
+    Model* model = assetLoadGLTF("./assets/world/models/BoxAnimated", "BoxAnimated.gltf");
     Scene* scene = sceneCreate();
+
+    Entity* entity = sceneCreateEntity(scene, model);
+    entityTransformSetTranslation(entity, (vec3){{0, 0, 0}});
+    sceneEntityApplyTransform(scene);
+    entitySetHidden(entity, false);
 
     sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
     sceneCameraSetPosition(scene, (vec3){{0, 0, 8}});
@@ -20,9 +25,6 @@ int main() {
     PassiveDelay lKey = passiveDelaySet(0.3);
     PassiveDelay xKey = passiveDelaySet(0.3);
     PassiveDelay escKey = passiveDelaySet(0.3);
-
-    PassiveDelay entityGenDelay = passiveDelaySet(.1);
-    int objectCount = 0;
 
     while (!platformGetPlatformState()->isWindowClosed) {
         if (platformInputIsKeyDown(KEY_l) && passiveDelayIsDoneIfSoReset(&lKey)) {
@@ -43,28 +45,9 @@ int main() {
             platformGetPlatformState()->isWindowClosed = true;
         }
 
-        if (passiveDelayIsDoneIfSoReset(&entityGenDelay) && objectCount < 100) {
-            Entity* sphere = sceneCreateEntity(scene, sphereModel);
-            entityTransformSetTranslation(sphere, (vec3){{-3, 3, 0}});
-            sceneEntityApplyTransform(scene);
-            sceneEntityCreatePhysicsBody(scene, sphere);
-            physicsBodySetCollidable(sphere->physicsBody, true);
-            entityPhysicsBodyAddForce(sphere, (vec3){{600}});
-            entitySetHidden(sphere, false);
-            objectCount++;
-        }
         physicsEngineRun(scene->physicsEngine, 1.0 / 120.0);
-        Entity* entity;
-        hashmap_foreach(scene->entities, entity) {
-            entity->transform.translation.x = clamp(entity->transform.translation.x, -3, 3);
-            entity->transform.translation.y = MAX(entity->transform.translation.y, -3);
-            if (entity->transform.translation.y == -3) entity->physicsBody->velocity.y = 0;
-            if (entity->transform.translation.x == -3 || entity->transform.translation.x == 3) entity->physicsBody->velocity.x *= -1;
-        }
         sceneEntityApplyTransform(scene);
         platformSleep(1.0 / fps);
     }
     engineShutdown();
-
-    WARN("Object Count = %d", objectCount);
 }

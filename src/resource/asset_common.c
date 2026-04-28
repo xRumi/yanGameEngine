@@ -19,7 +19,6 @@ Material* create_default_material(HashMap* images) {
     ret->normal.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
     ret->metallicRoughness.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
     ret->pipelineType = PIPELINE_TYPE_DEFAULT;
-    ret->meshes = darray_create_memoryTag(Mesh, MEMORY_TAG_ASSET_MANAGER);
     return ret;
 }
 
@@ -27,9 +26,9 @@ void calculate_model_AABB(Model* model) {
     float halfDimension = 0;
     Material* material;
     hashmap_foreach(model->materials, material) {
-        int meshCount = darray_get_length(material->meshes);
+        int meshCount = darray_get_length(model->meshes);
         for (int i = 0; i < meshCount; i++) {
-            halfDimension = MAX(halfDimension, material->meshes[i].collider.halfDimension);
+            halfDimension = MAX(halfDimension, model->meshes[i].collider.halfDimension);
         }
     }
     model->collider.halfDimension = halfDimension;

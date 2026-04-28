@@ -40,12 +40,10 @@ typedef struct Texture {
     Image* image;
 } Texture;
 
-typedef struct Mesh {
-    Vertex* vertices;
-    uint32_t* indices;
-    void* meshRendererStateRef;
-    Collider collider;
-} Mesh;
+typedef struct MeshAnimation {
+    float* input;
+    Transform* output;
+} MeshAnimation;
 
 typedef struct Material {
     Texture baseColor;
@@ -57,12 +55,27 @@ typedef struct Material {
     float roughnessFactor;
 
     PipelineType pipelineType;
-    Mesh* meshes;
     void* materialRendererStateRef;
 } Material;
 
+typedef struct Mesh {
+    Vertex* vertices;
+    uint32_t* indices;
+    Material* material;
+    Collider collider;
+    void* meshRendererStateRef;
+} Mesh;
+
+typedef struct Node {
+    Mesh* mesh;
+    Transform transform;
+} Node;
+
+
 typedef struct Model {
     const char* name;
+    Node* nodes;
+    Mesh* meshes;
     HashMap* images;
     HashMap* materials;
     bool isRendererReady;
@@ -79,6 +92,7 @@ typedef struct Entity {
     uint64_t id;
     Model* model;
     Transform transform;
+    Transform* meshTransform;
     ModelMatrix modelMatrix;
     PhysicsBody* physicsBody;
     Collider collider;
