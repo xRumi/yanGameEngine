@@ -646,7 +646,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
         pushConstant0.model = entityGetModelMatrix(entity);
 
         Node* node;
-        darray_foreach_pointer(model->nodes, node) {
+        hashmap_foreach(model->nodes, node) {
             Mesh* mesh = node->mesh;
             if (!mesh) continue;
 
@@ -674,6 +674,12 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                 }
                 previousMaterialRendererState = materialRendererState;
             }
+            if (node->isAnimated) {
+                NodeAnimation* nodeAnimation = (NodeAnimation*)hashmap_get(entity->nodeAnimations, (uint64_t)node);
+                if (!nodeAnimation) ERROR("Node Animation not found");
+                pushConstant0.node = atomicMatrixGetMatrix(&nodeAnimation->matrix);
+            } else pushConstant0.node = node->matrix;
+
             vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
 
             MeshRendererState* meshRendererState = mesh->meshRendererStateRef;

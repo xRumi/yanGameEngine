@@ -103,8 +103,22 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
-void load_model_animations(Mesh* mesh, cgltf_animation* animations, uint32_t animationCount) {
-
+HashMap* load_nodes(cgltf_data* gltf_data) {
+    HashMap* nodes = hashmap_create(gltf_data->nodes_count);
+    for (int i = 0; i < gltf_data->nodes_count; i++) {
+        Node* node = memalloc(sizeof(Node), MEMORY_TAG_ASSET_MANAGER);
+        cgltf_node_transform_local(&gltf_data->nodes[i], node->matrix.ele);
+        hashmap_put(nodes, (uint64_t)&gltf_data->nodes[i], (uint64_t)node);
+    }
+    for (int i = 0; i < gltf_data->animations_count; i++) {
+        int channelCount = gltf_data->animations[i].channels_count;
+        for (int j = 0; j < channelCount; j++) {
+            cgltf_animation_channel* channel = &gltf_data->animations[i].channels[j];
+            Node* node = (Node*)hashmap_get(nodes, (uint64_t)channel->target_node);
+            node->isAnimated = true;
+        }
+    }
+    return nodes;
 }
 
 void find_mesh_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
@@ -186,16 +200,8 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
     model->name = gltf_file;
     model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
     model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
-    model->nodes = darray_create_reserve_memoryTag(Node, gltf_data->nodes_count, MEMORY_TAG_ASSET_MANAGER);
     model->meshes = darray_create_reserve_memoryTag(Mesh, gltf_data->meshes_count, MEMORY_TAG_ASSET_MANAGER);
-    
-
-    for (int k = 0; k < gltf_data->nodes_count; k++) {
-        model->nodes[k].transform = (Transform){
-            .translation = (vec3){{gltf_data->nodes[k].translation[0], gltf_data->nodes[k].translation[1], gltf_data->nodes[k].translation[2]}},
-            .scale = (vec3){{gltf_data->nodes[k].scale[0], gltf_data->nodes[k].scale[1], gltf_data->nodes[k].scale[2]}},
-        };
-    }
+    model->nodes = load_nodes(gltf_data);
 
     stringBuilderConcat(&traceStr, "Image: %d\n", gltf_data->images_count);
     stringBuilderConcat(&traceStr, "Material: %d", gltf_data->materials_count);
@@ -229,8 +235,9 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
                     model->meshes[i] = mesh;
 
                     for (int k = 0; k < gltf_data->nodes_count; k++) {
-                        if (gltf_data->nodes[k].mesh == &gltf_data->meshes[i] && !model->nodes[k].mesh) {
-                            model->nodes[k].mesh = &model->meshes[i];
+                        if (gltf_data->nodes[k].mesh == &gltf_data->meshes[i]) {
+                            Node* node = (Node*)hashmap_get(model->nodes, (uint64_t)&gltf_data->nodes[k]);
+                            node->mesh = &model->meshes[i];
                         }
                     }
 

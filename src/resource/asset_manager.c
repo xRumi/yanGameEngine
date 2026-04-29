@@ -10,16 +10,8 @@ void entityTransformSetTranslation(Entity* entity, vec3 translation) {
     entity->transform.translation = translation;
 }
 void entityTransformApply(Entity* entity) {
-    mat4 translation = mat4_translation_vec3(entity->transform.translation);
-    mat4 rotation = mat4_mul(mat4_rotation_z(entity->transform.rotation.z), mat4_mul(mat4_rotation_x(entity->transform.rotation.y), mat4_rotation_y(entity->transform.rotation.x)));
-    mat4 scale = mat4_scale_vec3(entity->transform.scale);
-    mat4 model = mat4_mul(translation, mat4_mul(rotation, scale));
-
-    entity->modelMatrix.shouldYield = true;
-    while (atomic_flag_test_and_set(&entity->modelMatrix.locked) != 0);
-    entity->modelMatrix.buffers[1] = model;
-    atomic_flag_clear(&entity->modelMatrix.locked);
-    entity->modelMatrix.shouldYield = false;
+    mat4 model = mat4FromTransform(entity->transform);
+    atomicMatrixSetMatrix(&entity->modelMatrix, model);
 }
 void entityTransformReset(Entity* entity) {
     entity->transform.translation = (vec3){{}};
@@ -28,15 +20,23 @@ void entityTransformReset(Entity* entity) {
     entityTransformApply(entity);
 }
 mat4 entityGetModelMatrix(Entity* entity) {
-    if (!entity->modelMatrix.shouldYield && atomic_flag_test_and_set(&entity->modelMatrix.locked) == 0) {
-        mat4 model = entity->modelMatrix.buffers[1];
-        atomic_flag_clear(&entity->modelMatrix.locked);
-        entity->modelMatrix.buffers[0] = model;
-    }
-    return entity->modelMatrix.buffers[0];
+    return atomicMatrixGetMatrix(&entity->modelMatrix);
 }
 void entityPhysicsBodyAddForce(Entity* entity, vec3 force) {
     if (entity->physicsBody) physicsBodyAddForce(entity->physicsBody, force);
+}
+HashMap* entityCreateNodeAnimations(Model* model) {
+    HashMap* nodeAnimations = hashmap_create(20);
+    Node* node;
+    hashmap_foreach(model->nodes, node) {
+        if (node->isAnimated) {
+            NodeAnimation* nodeAnimation = memalloc(sizeof(NodeAnimation), MEMORY_TAG_ASSET_MANAGER);
+            nodeAnimation->node = node;
+            atomicMatrixSetMatrix(&nodeAnimation->matrix, node->matrix);
+            hashmap_put(nodeAnimations, (uint64_t)node, (uint64_t)nodeAnimation);
+        }
+    }
+    return nodeAnimations;
 }
 
 Scene* sceneCreate() {
@@ -52,6 +52,7 @@ Entity* sceneCreateEntity(Scene* scene, Model* model) {
     Entity* entity = memalloc(sizeof(Entity), MEMORY_TAG_ENTITY);
     entity->id = assetManagerEntityId++;
     entity->model = model;
+    entity->nodeAnimations = entityCreateNodeAnimations(model);
     entity->isHidden = true;
     entity->transform.scale = (vec3){{1, 1, 1}};
     entity->modelMatrix.buffers[0] = mat4_identity();

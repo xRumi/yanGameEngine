@@ -50,6 +50,7 @@ typedef struct SwapchainSupportDetails {
 
 typedef struct PushConstant0 {
     mat4 model;
+    mat4 node;
 } PushConstant0;
 
 typedef struct PipelineState {

@@ -1,11 +1,10 @@
 #pragma once
 
-#include <stdatomic.h>
-
 #include "defines.h"
 #include "math_types.h"
 #include "hashMap.h"
 #include "physics.h"
+#include "utils.h"
 
 typedef struct Vertex {
     vec3 position;
@@ -67,33 +66,32 @@ typedef struct Mesh {
 } Mesh;
 
 typedef struct Node {
+    mat4 matrix;
     Mesh* mesh;
-    Transform transform;
+    bool isAnimated;
 } Node;
 
+typedef struct NodeAnimation {
+    Node* node;
+    AtomicMatrix matrix;
+} NodeAnimation;
 
 typedef struct Model {
     const char* name;
-    Node* nodes;
     Mesh* meshes;
     HashMap* images;
     HashMap* materials;
+    HashMap* nodes;
     bool isRendererReady;
     Collider collider;
 } Model;
 
-typedef struct ModelMatrix {
-    mat4 buffers[2]; // 0 = read, 1 = write
-    atomic_flag locked;
-    bool shouldYield;
-} ModelMatrix;
-
 typedef struct Entity {
     uint64_t id;
     Model* model;
+    HashMap* nodeAnimations;
     Transform transform;
-    Transform* meshTransform;
-    ModelMatrix modelMatrix;
+    AtomicMatrix modelMatrix;
     PhysicsBody* physicsBody;
     Collider collider;
     bool isHidden;

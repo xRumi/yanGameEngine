@@ -67,3 +67,20 @@ void stringBuilderConcat(char** darray, const char* message, ...) {
         darray_push(*darray, output[i]);
     }
 }
+
+mat4 atomicMatrixGetMatrix(AtomicMatrix* atomicMatrix) {
+    if (!atomicMatrix->shouldYield && atomic_flag_test_and_set(&atomicMatrix->locked) == 0) {
+        mat4 model = atomicMatrix->buffers[1];
+        atomic_flag_clear(&atomicMatrix->locked);
+        atomicMatrix->buffers[0] = model;
+    }
+    return atomicMatrix->buffers[0];
+}
+
+void atomicMatrixSetMatrix(AtomicMatrix* atomicMatrix, mat4 matrix) {
+    atomicMatrix->shouldYield = true;
+    while (atomic_flag_test_and_set(&atomicMatrix->locked) != 0);
+    atomicMatrix->buffers[1] = matrix;
+    atomic_flag_clear(&atomicMatrix->locked);
+    atomicMatrix->shouldYield = false;
+}

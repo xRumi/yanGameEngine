@@ -22,6 +22,13 @@ Material* create_default_material(HashMap* images) {
     return ret;
 }
 
+mat4 mat4FromTransform(Transform transform) {
+    mat4 translation = mat4_translation_vec3(transform.translation);
+    mat4 rotation = mat4_mul(mat4_rotation_z(transform.rotation.z), mat4_mul(mat4_rotation_x(transform.rotation.y), mat4_rotation_y(transform.rotation.x)));
+    mat4 scale = mat4_scale_vec3(transform.scale);
+    return mat4_mul(translation, mat4_mul(rotation, scale));
+}
+
 void calculate_model_AABB(Model* model) {
     float halfDimension = 0;
     Material* material;

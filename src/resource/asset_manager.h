@@ -11,6 +11,7 @@ void entityTransformApply(Entity* entity);
 void entityTransformReset(Entity* entity);
 mat4 entityGetModelMatrix(Entity* entity);
 void entityPhysicsBodyAddForce(Entity* entity, vec3 force);
+HashMap* entityCreateNodeAnimations(Model* model);
 
 Scene* sceneCreate();
 void sceneDestroy(Scene* scene);
@@ -29,7 +30,7 @@ void calculate_model_AABB(Model* model);
 void calculate_mesh_AABB(Mesh* mesh);
 void load_default_images(HashMap* images);
 Material* create_default_material(HashMap* images);
+mat4 mat4FromTransform(Transform transform);
 
 Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file);
-
 Model* assetGenerateUVSphere(int slices, int stacks, float radius);
