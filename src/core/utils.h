@@ -20,7 +20,7 @@ void passiveDelayReset(PassiveDelay* passiveDelay);
 bool passiveDelayIsDoneIfSoReset(PassiveDelay* passiveDelay);
 
 typedef struct TimeManager {
-    const double startTime;
+    double startTime;
     double lastTime;
     double elapsedTime;
     double deltaTime;

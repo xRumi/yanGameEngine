@@ -47,6 +47,12 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
             .normal = {{0, 0, 1}},
             .tangent = {{1, 0, 0, 1}},
         };
+        vertices[i].color = (vec4){{
+            (rand() % 256) / 256.0,
+            (rand() % 256) / 256.0,
+            (rand() % 256) / 256.0,
+            (rand() % 256) / 256.0,
+        }};
     }
     for (int i = 0; i < attributeCount; i++) {
         cgltf_attribute_type attributeType = attributes[i].type;
@@ -107,15 +113,49 @@ HashMap* load_nodes(cgltf_data* gltf_data) {
     HashMap* nodes = hashmap_create(gltf_data->nodes_count);
     for (int i = 0; i < gltf_data->nodes_count; i++) {
         Node* node = memalloc(sizeof(Node), MEMORY_TAG_ASSET_MANAGER);
-        cgltf_node_transform_local(&gltf_data->nodes[i], node->matrix.ele);
+        node->child = darray_create_reserve_memoryTag(Node*, gltf_data->nodes[i].children_count, MEMORY_TAG_ASSET_MANAGER);
+        cgltf_node_transform_world(&gltf_data->nodes[i], node->matrix.ele);
         hashmap_put(nodes, (uint64_t)&gltf_data->nodes[i], (uint64_t)node);
+    }
+    for (int i = 0; i < gltf_data->nodes_count; i++) {
+        Node* node = (Node*)hashmap_get(nodes, (uint64_t)&gltf_data->nodes[i]);
+        for (int j = 0; j < gltf_data->nodes[i].children_count; j++) {
+            Node* child = (Node*)hashmap_get(nodes, (uint64_t)gltf_data->nodes[i].children[j]);
+            node->child[j] = child;
+        }
     }
     for (int i = 0; i < gltf_data->animations_count; i++) {
         int channelCount = gltf_data->animations[i].channels_count;
         for (int j = 0; j < channelCount; j++) {
             cgltf_animation_channel* channel = &gltf_data->animations[i].channels[j];
+            cgltf_animation_sampler* sampler = channel->sampler;
             Node* node = (Node*)hashmap_get(nodes, (uint64_t)channel->target_node);
             node->isAnimated = true;
+            darray_foreach_inline_decl(node->child, Node*, child) {
+                child->isAnimated = true;
+            }
+            switch (channel->target_path) {
+                case cgltf_animation_path_type_invalid:
+                case cgltf_animation_path_type_translation: {
+                    node->animationSampler.translation.input = darray_create_reserve_memoryTag(float, sampler->input->count, MEMORY_TAG_ASSET_MANAGER);
+                    node->animationSampler.translation.output = darray_create_reserve_memoryTag(vec3, sampler->output->count, MEMORY_TAG_ASSET_MANAGER);
+                    for (int k = 0; k < sampler->input->count; k++) {
+                        float time;
+                        vec3 translation = {};
+                        memcpy(&time, sampler->input->buffer_view->buffer->data + sampler->input->offset + sampler->input->buffer_view->offset + sampler->input->stride * k, sizeof(float));
+                        memcpy(&translation, sampler->output->buffer_view->buffer->data + sampler->output->offset + sampler->output->buffer_view->offset + sampler->output->stride * k, sizeof(vec3));
+                        node->animationSampler.translation.input[k] = time;
+                        node->animationSampler.translation.output[k] = translation;
+                        if (k == sampler->input->count - 1) node->animationSampler.translation.inputMax = time;
+                    }
+                    break;
+                }
+                case cgltf_animation_path_type_rotation:
+                case cgltf_animation_path_type_scale:
+                case cgltf_animation_path_type_weights:
+                case cgltf_animation_path_type_max_enum:
+                break;
+            }
         }
     }
     return nodes;

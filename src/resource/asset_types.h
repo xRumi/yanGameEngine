@@ -65,14 +65,36 @@ typedef struct Mesh {
     void* meshRendererStateRef;
 } Mesh;
 
+typedef struct NodeAnimationSampler {
+    struct {
+        float* input;
+        float inputMax;
+        vec4* output;
+    } rotation;
+    struct {
+        float* input;
+        float inputMax;
+        vec3* output;
+    } translation;
+    struct {
+        float* input;
+        float inputMax;
+        vec3* output;
+    } scale;
+} NodeAnimationSampler;
+
 typedef struct Node {
     mat4 matrix;
     Mesh* mesh;
+    struct Node** child;
     bool isAnimated;
+    NodeAnimationSampler animationSampler;
 } Node;
 
 typedef struct NodeAnimation {
     Node* node;
+    mat4 propagration;
+    int generation;
     AtomicMatrix matrix;
 } NodeAnimation;
 
@@ -90,11 +112,13 @@ typedef struct Entity {
     uint64_t id;
     Model* model;
     HashMap* nodeAnimations;
+    TimeManager timeManager;
     Transform transform;
     AtomicMatrix modelMatrix;
     PhysicsBody* physicsBody;
     Collider collider;
     bool isHidden;
+    int generation;
 } Entity;
 
 #define POINT_LIGHT_MAX_COUNT 32
