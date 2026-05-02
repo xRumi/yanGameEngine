@@ -15,8 +15,6 @@
 
 #define MAX_FRAMES_IN_FLIGHT 2
 
-#include "pipeline.h"
-
 typedef struct MeshRendererState {
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
