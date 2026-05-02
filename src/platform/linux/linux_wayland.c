@@ -29,7 +29,7 @@ struct {
     struct xdg_surface* xdg_surface;
     struct xdg_toplevel* xdg_toplevel;
     struct zxdg_decoration_manager_v1* zxdg_decoration_manager_v1;
-    struct zxdg_toplevel_decoration_v1* zxdg_toplevel_decoration_v1;
+    // struct zxdg_toplevel_decoration_v1* zxdg_toplevel_decoration_v1;
     struct zwp_relative_pointer_manager_v1* zwp_relative_pointer_manager_v1;
     struct zwp_pointer_constraints_v1* zwp_pointer_constraints_v1;
     struct wl_seat* wl_seat;
@@ -94,7 +94,7 @@ const struct xdg_wm_base_listener xdg_wm_base_listener = {
 
 static void xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
     xdg_surface_ack_configure(xdg_surface, serial);
-    zxdg_toplevel_decoration_v1_set_mode(internalStatePlatform.zxdg_toplevel_decoration_v1, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    // zxdg_toplevel_decoration_v1_set_mode(internalStatePlatform.zxdg_toplevel_decoration_v1, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 }
 const struct xdg_surface_listener xdg_surface_listener = {
     .configure = xdg_surface_configure
@@ -302,7 +302,7 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
     xdg_toplevel_set_title(internalStatePlatform.xdg_toplevel, windowTitle);
 
     // zxdg decoration related
-    internalStatePlatform.zxdg_toplevel_decoration_v1 = zxdg_decoration_manager_v1_get_toplevel_decoration(internalStatePlatform.zxdg_decoration_manager_v1, internalStatePlatform.xdg_toplevel);
+    // internalStatePlatform.zxdg_toplevel_decoration_v1 = zxdg_decoration_manager_v1_get_toplevel_decoration(internalStatePlatform.zxdg_decoration_manager_v1, internalStatePlatform.xdg_toplevel);
 
     // wl_seat related
     wl_seat_add_listener(internalStatePlatform.wl_seat, &wl_seat_listener, NULL);
