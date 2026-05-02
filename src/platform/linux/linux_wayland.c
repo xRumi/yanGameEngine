@@ -25,8 +25,6 @@ struct {
     struct wl_display* wl_display;
     struct wl_compositor* wl_compositor;
     struct wl_surface* wl_surface;
-    struct wl_shm* wl_shm;
-    struct wl_shm_pool* wl_shm_pool;
     struct xdg_wm_base* xdg_wm_base;
     struct xdg_surface* xdg_surface;
     struct xdg_toplevel* xdg_toplevel;
@@ -63,8 +61,6 @@ const uint32_t keyboard_input_xkb_map[KEY_INPUT_MAX] = {
 static void registry_handle_global(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
         internalStatePlatform.wl_compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
-    } else if (strcmp(interface, wl_shm_interface.name) == 0) {
-        internalStatePlatform.wl_shm = wl_registry_bind(registry, name, &wl_shm_interface, 2);
     } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
         internalStatePlatform.xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
     } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
@@ -76,6 +72,14 @@ static void registry_handle_global(void* data, struct wl_registry* registry, uin
     } else if (strcmp(interface, zwp_pointer_constraints_v1_interface.name) == 0) {
         internalStatePlatform.zwp_pointer_constraints_v1 = wl_registry_bind(registry, name, &zwp_pointer_constraints_v1_interface, 1);
     }
+}
+static void check_missing_global_handle() {
+    if (!internalStatePlatform.wl_compositor) ERROR("wl_compositor not bind");
+    if (!internalStatePlatform.xdg_wm_base) ERROR("xdg_wm_base not bind");
+    if (!internalStatePlatform.zxdg_decoration_manager_v1) ERROR("zxdg_decoration_manager_v1 not bind");
+    if (!internalStatePlatform.wl_seat) ERROR("wl_seat not bind");
+    if (!internalStatePlatform.zwp_relative_pointer_manager_v1) ERROR("zwp_relative_pointer_manager_v1 not bind");
+    if (!internalStatePlatform.zwp_pointer_constraints_v1) ERROR("zwp_pointer_constraints_v1 not bind");
 }
 const struct wl_registry_listener registry_listener = {
     .global = registry_handle_global
@@ -134,10 +138,6 @@ void handle_wl_keyboard_input(uint32_t key, uint32_t state) {
     char buf[128];
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(internalStatePlatform.xkb_state, key + 8);
     xkb_keysym_get_name(keysym, buf, sizeof(buf));
-    // if (keysym >= CARRAY_SIZE(internalStatePlatform.keyboard_input_xkb)) {
-    //     WARN("Unknown key (%s) %s", buf, state == WL_KEYBOARD_KEY_STATE_PRESSED ? "pressed" : "released");
-    //     return;
-    // }
     hashmap_put(internalStatePlatform.keyboard_input_xkb, keysym, (state == WL_KEYBOARD_KEY_STATE_PRESSED));
 }
 
@@ -287,6 +287,7 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
     internalStatePlatform.keyboard_input_xkb = hashmap_create(1000);
 
     wl_display_roundtrip(internalStatePlatform.wl_display);
+    check_missing_global_handle();
 
     internalStatePlatform.wl_surface = wl_compositor_create_surface(internalStatePlatform.wl_compositor);
 
