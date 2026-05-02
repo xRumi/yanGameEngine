@@ -97,7 +97,7 @@ const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 void xdg_toplevel_configure(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height, struct wl_array* states) {
-    if (platformState.resizeSupportEnabled && width && height && (platformState.width != width || platformState.height != height)) {
+    if (platformState.isWindowResizable && width && height && (platformState.width != width || platformState.height != height)) {
         platformState.width = width;
         platformState.height = height;
         platformState.isWindowResized = true;
@@ -375,8 +375,8 @@ void platformPointerUnhide() {
     // TODO: show cursor properly
 }
 
-void platformWindowSetResizeSupport(bool enable) {
-    platformState.resizeSupportEnabled = enable;
+void platformWindowSetResizable(bool enable) {
+    platformState.isWindowResizable = enable;
 }
 
 void platformWindowSetFullScreen(bool fullscreen) {
