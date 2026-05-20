@@ -103,17 +103,13 @@ int main() {
             platformGetPlatformState()->isWindowClosed = true;
         }
 
-        if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
-            platformWindowSetFullScreen((paused = !paused));
-        }
-
         if (paused) {
             if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
                 paused = false;
             }
         }
 
-        if (!gameOver && !paused && 0) {
+        if (!gameOver && !paused) {
             if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
                 birdEntity->physicsBody->velocity.y = 3;
             }
