@@ -104,8 +104,8 @@ typedef struct Model {
     HashMap* images;
     HashMap* materials;
     HashMap* nodes;
-    bool isRendererReady;
     Collider collider;
+    bool isRendererReady;
 } Model;
 
 #define POINT_LIGHT_MAX_COUNT 32
@@ -126,8 +126,8 @@ typedef struct __attribute__((aligned(16))) DirectionalLight {
 } DirectionalLight;
 
 typedef struct Camera {
-    vec3 position;
-    vec3 rotation;
+    AtomicVec3 position;
+    AtomicVec3 rotation;
     float sensitivity;
 } Camera;
 typedef struct __attribute__((aligned(16))) FrameUBO {

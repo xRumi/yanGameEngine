@@ -191,8 +191,6 @@ void createLogicalDevice() {
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pQueueCreateInfos = queueCreateInfos;
     createInfo.queueCreateInfoCount = darray_get_length(queueCreateInfos);
-    createInfo.ppEnabledLayerNames = instanceLayers;
-    createInfo.enabledLayerCount = sizeof(instanceLayers) / sizeof(instanceLayers[0]);
     createInfo.ppEnabledExtensionNames = deviceExtensions;
     createInfo.enabledExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
     createInfo.pEnabledFeatures = &features;
@@ -463,31 +461,12 @@ void updateFrameUBO(double deltaTime) {
     double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
     (void)elapsedTime;
 
-    if (platformWindowIsFocused() && platformPointerIsLocked()) {
-        vec2 pointerRelative = platformInputPointerRelative();
-        // rotation(euler angle): x = yaw, y = pitch, z = roll
-        internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * internalStateRenderer.scene->camera.sensitivity;
-        internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * internalStateRenderer.scene->camera.sensitivity;
-        internalStateRenderer.scene->camera.rotation.x = fmodf(internalStateRenderer.scene->camera.rotation.x, TO_RADIANS(360));
-        internalStateRenderer.scene->camera.rotation.y = clamp(internalStateRenderer.scene->camera.rotation.y, -1.5f, 1.5);
-    }
+    vec3 cameraPosition = atomicVec3GetVec3(&internalStateRenderer.scene->camera.position);
+    vec3 cameraRotation = atomicVec3GetVec3(&internalStateRenderer.scene->camera.rotation);
 
-    vec3 front = vec3_normalize((vec3){{-sinf(internalStateRenderer.scene->camera.rotation.x)*cosf(internalStateRenderer.scene->camera.rotation.y), sinf(internalStateRenderer.scene->camera.rotation.y), -cosf(internalStateRenderer.scene->camera.rotation.x)*cosf(internalStateRenderer.scene->camera.rotation.y)}});
-
-    uint32_t cameraMoveSpeed = 10;
-    vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
-    vec3 rightMoveAmount = vec3_scale(vec3_normalize(vec3_cross(front, UP_DIRECTION_VEC3)), deltaTime * cameraMoveSpeed);
-    vec3 upMoveAmount = vec3_scale(vec3_normalize(vec3_cross(rightMoveAmount, forwardMoveAmount)), deltaTime * cameraMoveSpeed);
-    if (platformInputIsKeyDown(KEY_w)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, forwardMoveAmount);
-    if (platformInputIsKeyDown(KEY_s)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(forwardMoveAmount));
-    if (platformInputIsKeyDown(KEY_a)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(rightMoveAmount));
-    if (platformInputIsKeyDown(KEY_d)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, rightMoveAmount);
-    if (platformInputIsKeyDown(KEY_q)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, upMoveAmount);
-    if (platformInputIsKeyDown(KEY_e)) internalStateRenderer.scene->camera.position = vec3_add(internalStateRenderer.scene->camera.position, vec3_neg(upMoveAmount));
-
-    internalStateRenderer.scene->frameUBO.view = mat4_view_YXZ(internalStateRenderer.scene->camera.position, internalStateRenderer.scene->camera.rotation);
+    internalStateRenderer.scene->frameUBO.view = mat4_view_YXZ(cameraPosition, cameraRotation);
     internalStateRenderer.scene->frameUBO.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
-    internalStateRenderer.scene->frameUBO.cameraPosition = vec4_from_vec3(internalStateRenderer.scene->camera.position, 0);
+    internalStateRenderer.scene->frameUBO.cameraPosition = vec4_from_vec3(cameraPosition, 0);
 
     PipelineState* pipelineState;
     darray_foreach(internalStateRenderer.pipelineStates, pipelineState) {
@@ -581,7 +560,7 @@ void rendererLoadModel(Model* model) {
         }
     }
     model->isRendererReady = true;
-    TRACE(ANSI_COLOR_MAGENTA "\b[RENDERER]" ANSI_RESET_ALL " Model \"%s\" loaded", model->name);
+    TRACE(ANSI_STYLE_BOLD "Model \"%s\" loaded", model->name);
 }
 
 void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageIndex, double deltaTime) {

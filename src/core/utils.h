@@ -9,6 +9,7 @@
 
 char* readFile(const char* filename);
 float clamp(float val, float min, float max);
+void stringBuilderConcat(char** darray, const char* message, ...);
 
 typedef struct PassiveDelay {
     double startTime;
@@ -28,12 +29,15 @@ typedef struct TimeManager {
 TimeManager timeManagerStart();
 void timeManagerUpdate(TimeManager* timeManager);
 
-typedef struct AtomicMatrix {
-    mat4 buffers[2]; // 0 = read, 1 = write
-    atomic_flag locked;
-    bool shouldYield;
-} AtomicMatrix;
-mat4 atomicMatrixGetMatrix(AtomicMatrix* atomicMatrix);
-void atomicMatrixSetMatrix(AtomicMatrix* atomicMatrix, mat4 matrix);
-
-void stringBuilderConcat(char** darray, const char* message, ...);
+#define CONCAT(a, b) a##b
+#define defineAtomicData(name, type)  \
+typedef struct Atomic##name {   \
+    type buffers[2];            \
+    atomic_flag locked;         \
+    bool shouldYield;           \
+} Atomic##name;                 \
+type CONCAT(atomic##name, Get##name)(Atomic##name* atomic##name); \
+void CONCAT(atomic##name, Set##name)(Atomic##name* atomic##name, type value);
+// buffers[0] = read, buffers[1] = write
+defineAtomicData(Matrix, mat4);
+defineAtomicData(Vec3, vec3);

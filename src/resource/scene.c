@@ -60,5 +60,5 @@ void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light) {
         }
 }
 void sceneCameraSetPosition(Scene* scene, vec3 position) {
-    scene->camera.position = position;
+    atomicVec3SetVec3(&scene->camera.position, position);
 }

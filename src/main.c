@@ -43,6 +43,35 @@ TwoPillar* createTwoPillarArray(Model* pillar, Scene* scene, int count, float st
     return array;
 }
 
+void handleCamera(Camera* camera, double deltaTime) {
+    vec3 cameraPosition = atomicVec3GetVec3(&camera->position);
+    vec3 cameraRotation = atomicVec3GetVec3(&camera->rotation);
+
+    if (platformWindowIsFocused() && platformPointerIsLocked()) {
+        vec2 pointerRelative = platformInputPointerRelative();
+        // rotation(euler angle): x = yaw, y = pitch, z = roll
+        cameraRotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * camera->sensitivity;
+        cameraRotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * camera->sensitivity;
+        cameraRotation.x = fmodf(cameraRotation.x, TO_RADIANS(360));
+        cameraRotation.y = clamp(cameraRotation.y, -1.5f, 1.5);
+    }
+
+    uint32_t cameraMoveSpeed = 10;
+    vec3 front = vec3_normalize((vec3){{-sinf(cameraRotation.x)*cosf(cameraRotation.y), sinf(cameraRotation.y), -cosf(cameraRotation.x)*cosf(cameraRotation.y)}});
+    vec3 forwardMoveAmount = vec3_scale(front, deltaTime * cameraMoveSpeed);
+    vec3 rightMoveAmount = vec3_scale(vec3_normalize(vec3_cross(front, UP_DIRECTION_VEC3)), deltaTime * cameraMoveSpeed);
+    vec3 upMoveAmount = vec3_scale(vec3_normalize(vec3_cross(rightMoveAmount, forwardMoveAmount)), deltaTime * cameraMoveSpeed);
+    if (platformInputIsKeyDown(KEY_w)) cameraPosition = vec3_add(cameraPosition, forwardMoveAmount);
+    if (platformInputIsKeyDown(KEY_s)) cameraPosition = vec3_add(cameraPosition, vec3_neg(forwardMoveAmount));
+    if (platformInputIsKeyDown(KEY_a)) cameraPosition = vec3_add(cameraPosition, vec3_neg(rightMoveAmount));
+    if (platformInputIsKeyDown(KEY_d)) cameraPosition = vec3_add(cameraPosition, rightMoveAmount);
+    if (platformInputIsKeyDown(KEY_q)) cameraPosition = vec3_add(cameraPosition, upMoveAmount);
+    if (platformInputIsKeyDown(KEY_e)) cameraPosition = vec3_add(cameraPosition, vec3_neg(upMoveAmount));
+
+    atomicVec3SetVec3(&camera->position, cameraPosition);
+    atomicVec3SetVec3(&camera->rotation, cameraRotation);
+}
+
 int main() {
     uint32_t width = 600, height = 600;
     double targetFrameTime = 1 / 120.0;
@@ -86,6 +115,7 @@ int main() {
     TimeManager timeManager = timeManagerStart();
     while (!platformGetPlatformState()->isWindowClosed) {
         timeManagerUpdate(&timeManager);
+        handleCamera(&scene->camera, timeManager.deltaTime);
 
         if (platformInputIsKeyDown(KEY_l) && passiveDelayIsDoneIfSoReset(&lKey)) {
             if (!locked) {

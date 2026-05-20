@@ -68,19 +68,22 @@ void stringBuilderConcat(char** darray, const char* message, ...) {
     }
 }
 
-mat4 atomicMatrixGetMatrix(AtomicMatrix* atomicMatrix) {
-    if (!atomicMatrix->shouldYield && atomic_flag_test_and_set(&atomicMatrix->locked) == 0) {
-        mat4 model = atomicMatrix->buffers[1];
-        atomic_flag_clear(&atomicMatrix->locked);
-        atomicMatrix->buffers[0] = model;
-    }
-    return atomicMatrix->buffers[0];
+#define implementAtomicData(name, type) \
+type CONCAT(atomic##name, Get##name)(Atomic##name* atomicData) { \
+    if (!atomicData->shouldYield && atomic_flag_test_and_set(&atomicData->locked) == 0) { \
+        type data = atomicData->buffers[1]; \
+        atomic_flag_clear(&atomicData->locked); \
+        atomicData->buffers[0] = data; \
+    } \
+    return atomicData->buffers[0]; \
+} \
+void CONCAT(atomic##name, Set##name)(Atomic##name* atomicData, type value) { \
+    atomicData->shouldYield = true; \
+    while (atomic_flag_test_and_set(&atomicData->locked) != 0); \
+    atomicData->buffers[1] = value; \
+    atomic_flag_clear(&atomicData->locked); \
+    atomicData->shouldYield = false; \
 }
 
-void atomicMatrixSetMatrix(AtomicMatrix* atomicMatrix, mat4 matrix) {
-    atomicMatrix->shouldYield = true;
-    while (atomic_flag_test_and_set(&atomicMatrix->locked) != 0);
-    atomicMatrix->buffers[1] = matrix;
-    atomic_flag_clear(&atomicMatrix->locked);
-    atomicMatrix->shouldYield = false;
-}
+implementAtomicData(Matrix, mat4);
+implementAtomicData(Vec3, vec3);
