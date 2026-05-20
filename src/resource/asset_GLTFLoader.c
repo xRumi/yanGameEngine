@@ -7,14 +7,10 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 
-#define STBI_ONLY_PNG
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb/stb_image.h"
-
 struct {
 } internalStateGLTFLoader;
 
-uint32_t* load_indices(const cgltf_accessor* accessor) {
+uint32_t* loadGLTFMeshIndices(const cgltf_accessor* accessor) {
     if (!accessor || accessor->type != cgltf_type_scalar) return NULL;
     unsigned long count = accessor->count,
         offset = accessor->offset,
@@ -35,7 +31,7 @@ uint32_t* load_indices(const cgltf_accessor* accessor) {
     return indices;
 }
 
-Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount) {
+Vertex* loadGLTFMeshVertices(const cgltf_attribute* attributes, uint32_t attributeCount) {
     if (!attributes) return NULL;
     uint32_t vertexCount = attributes[0].data->count;
     Vertex* vertices = darray_create_reserve_memoryTag(Vertex, vertexCount, MEMORY_TAG_ASSET_MANAGER);
@@ -109,7 +105,7 @@ Vertex* load_vertices(const cgltf_attribute* attributes, uint32_t attributeCount
     return vertices;
 }
 
-HashMap* load_nodes(cgltf_data* gltf_data) {
+HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
     HashMap* nodes = hashmap_create(gltf_data->nodes_count);
     for (int i = 0; i < gltf_data->nodes_count; i++) {
         Node* node = memalloc(sizeof(Node), MEMORY_TAG_ASSET_MANAGER);
@@ -131,7 +127,9 @@ HashMap* load_nodes(cgltf_data* gltf_data) {
             cgltf_animation_sampler* sampler = channel->sampler;
             Node* node = (Node*)hashmap_get(nodes, (uint64_t)channel->target_node);
             node->isAnimated = true;
-            darray_foreach_inline_decl(node->child, Node*, child) {
+            Node** childRef;
+            darray_foreach(node->child, childRef) {
+                Node* child = *childRef;
                 child->isAnimated = true;
             }
             switch (channel->target_path) {
@@ -161,53 +159,43 @@ HashMap* load_nodes(cgltf_data* gltf_data) {
     return nodes;
 }
 
-void find_mesh_AABB(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
+void updateMeshColliderHalfDimensionsIfProvided(Mesh* mesh, const cgltf_attribute* attributes, uint32_t attributeCount) {
     for (int i = 0; i < attributeCount; i++)
         if (attributes[i].type == cgltf_attribute_type_position) {
             cgltf_accessor* accessor = attributes[i].data;
             if (accessor->has_max && accessor->has_min) {
                 vec3 min = (vec3){{accessor->min[0], accessor->min[1], accessor->min[2]}};
                 vec3 max = (vec3){{accessor->max[0], accessor->max[1], accessor->max[2]}};
-                mesh->collider.halfDimension = vec3_length(vec3_sub(max, min)) * 0.5;
+                mesh->collider.halfDimensions = vec3_scale(vec3_sub(max, min), 0.5);
                 return;
             }
         }
     TRACE("AABB not provided, generating overself");
-    calculate_mesh_AABB(mesh);
+    updateMeshColliderHalfDimensions(mesh);
 }
 
-HashMap* load_images(const char* gltf_dir, cgltf_image* images, uint32_t imageCount) {
-    (void)stbi__mul2shorts_valid;
-    (void)stbi__addints_valid;
+HashMap* loadGLTFImages(const char* gltf_dir, cgltf_image* images, uint32_t imageCount) {
     HashMap* imageHashMap = hashmap_create(imageCount * 10 + 1);
-    load_default_images(imageHashMap);
-    char imagePath[256];
+    imagesPutDefaultImages(imageHashMap);
+    char path[256];
     for (uint32_t i = 0; i < imageCount; i++) {
         if (!images[i].uri) {
             WARN("Found image with null uri, skipping");
             continue;
         }
-        snprintf(imagePath, 256, "%s/%s", gltf_dir, images[i].uri);
-        int width = 0, height = 0, channel = 0;
-        stbi_uc* pixels = stbi_load(imagePath, &width, &height, &channel, STBI_rgb_alpha);
-        if (!pixels) {
-            WARN("Failed to load image, skipping");
-            continue;
-        }
-        Image* image = memalloc(sizeof(Image), MEMORY_TAG_ASSET_MANAGER);
-        image->height = height;
-        image->width = width;
-        image->data = pixels;
+        snprintf(path, 256, "%s/%s", gltf_dir, images[i].uri);
+        Image* image = imageLoadFromPath(images[i].uri);
+        if (!image) continue;
         hashmap_put(imageHashMap, hash_string(images[i].uri), (uint64_t)image);
     }
     return imageHashMap;
 }
 
-HashMap* load_materials(cgltf_material* gltf_material, uint32_t materialCount, HashMap* images) {
+HashMap* loadGLTFMaterials(cgltf_material* gltf_material, uint32_t materialCount, HashMap* images) {
     HashMap* materials = hashmap_create(materialCount * 10 + 1);
-    hashmap_put(materials, 0, (uint64_t)create_default_material(images));
+    hashmap_put(materials, 0, (uint64_t)materialFromDefaultImages(images));
     for (int i = 0; i < materialCount; i++) {
-        Material* material = create_default_material(images);
+        Material* material = materialFromDefaultImages(images);
         if (gltf_material[i].pbr_metallic_roughness.base_color_texture.texture)
             material->baseColor.image = (Image*)hashmap_get(images, hash_string(gltf_material[i].pbr_metallic_roughness.base_color_texture.texture->image->uri));
         if (gltf_material[i].normal_texture.texture)
@@ -238,10 +226,10 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
 
     Model* model = memalloc(sizeof(Model), MEMORY_TAG_ASSET_MANAGER);
     model->name = gltf_file;
-    model->images = load_images(gltf_dir, gltf_data->images, gltf_data->images_count);
-    model->materials = load_materials(gltf_data->materials, gltf_data->materials_count, model->images);
+    model->images = loadGLTFImages(gltf_dir, gltf_data->images, gltf_data->images_count);
+    model->materials = loadGLTFMaterials(gltf_data->materials, gltf_data->materials_count, model->images);
     model->meshes = darray_create_reserve_memoryTag(Mesh, gltf_data->meshes_count, MEMORY_TAG_ASSET_MANAGER);
-    model->nodes = load_nodes(gltf_data);
+    model->nodes = loadGLTFNodes(gltf_data);
 
     stringBuilderConcat(&traceStr, "Image: %d\n", gltf_data->images_count);
     stringBuilderConcat(&traceStr, "Material: %d", gltf_data->materials_count);
@@ -263,13 +251,13 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
                     Mesh mesh = {};
 
                     stringBuilderConcat(&traceStr, "Indices    = %d\n", primitive->indices->count);
-                    mesh.indices = load_indices(primitive->indices);
+                    mesh.indices = loadGLTFMeshIndices(primitive->indices);
                     if (mesh.indices == NULL) FATAL("[%s] Failed to load indices", gltf_path);
 
                     stringBuilderConcat(&traceStr, "Vertices   = %d\n", primitive->attributes[0].data->count);
-                    mesh.vertices = load_vertices(primitive->attributes, primitive->attributes_count);
+                    mesh.vertices = loadGLTFMeshVertices(primitive->attributes, primitive->attributes_count);
                     if (mesh.vertices == NULL) FATAL("[%s] Failed to load vertices", gltf_path);
-                    find_mesh_AABB(&mesh, primitive->attributes, primitive->attributes_count);
+                    updateMeshColliderHalfDimensionsIfProvided(&mesh, primitive->attributes, primitive->attributes_count);
 
                     mesh.material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
                     model->meshes[i] = mesh;
@@ -293,7 +281,7 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
             }
         }
     }
-    calculate_model_AABB(model);
+    updateModelColliderHalfDimensions(model);
     cgltf_free(gltf_data);
     stringBuilderConcat(&traceStr, "-----------------------------------------------------------", gltf_file);
     TRACE(traceStr);

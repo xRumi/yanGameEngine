@@ -1,5 +1,9 @@
 #pragma once
 #include "defines.h"
+#include "math_types.h"
+
+#define VK_USE_PLATFORM_WAYLAND_KHR
+#include <vulkan/vulkan.h>
 
 typedef struct PlatformState {
     void* display;
@@ -31,14 +35,8 @@ typedef enum KeyboardInputMap {
     KEY_INPUT_MAX
 } KeyboardInputMap;
 
-typedef union PointerInput {
-    int ele[2];
-    struct {
-        int x, y;
-    };
-} PointerInput;
-
 void platformInitialize(const char* windowTitle, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+VkSurfaceKHR platformCreateSurface(VkInstance instance);
 void platformPullEvent();
 void platformShutdown();
 
@@ -49,8 +47,8 @@ double platformGetTime();
 void platformSleep(double time);
 
 bool platformInputIsKeyDown(KeyboardInputMap key);
-PointerInput platformInputPointerCurr();
-PointerInput platformInputPointerRelative();
+vec2 platformInputPointerCurr();
+vec2 platformInputPointerRelative();
 
 void platformPointerLock();
 void platformPointerUnlock();

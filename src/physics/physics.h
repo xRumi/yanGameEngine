@@ -1,6 +1,6 @@
 #pragma once
-#include "defines.h"
-#include "emath.h"
+#include <stdbool.h>
+#include "math_types.h"
 
 typedef struct Transform {
     vec3 translation;
@@ -19,14 +19,21 @@ typedef struct Collider {
     ColliderType type;
     vec3* center;
     float radius;
-    float halfDimension;
+    vec3 halfDimensions;
 } Collider;
+
+typedef struct CollisionResult {
+    vec3 normal;
+    float penetration;
+} CollisionResult;
+
 
 typedef struct PhysicsBody {
     Transform* transform;
     vec3 velocity;
     vec3 acceleration;
     vec3 forceAccumulator;
+    float gravity;
     float mass;
     float massInverse;
 
@@ -37,13 +44,19 @@ typedef struct PhysicsBody {
 
 typedef struct PhysicsEngine {
     PhysicsBody** bodies;
-    double gravity;
+    float gravity;
 } PhysicsEngine;
 
 PhysicsEngine* physicsEngineCreate();
 void physicsEngineRun(PhysicsEngine* engine, float dt);
+void physicsEngineGravitySet(PhysicsEngine* physicsEngine, float gravity);
+void physicsBodyGravitySet(PhysicsBody* physicsBody, float gravity);
 void physicsBodyMassSet(PhysicsBody* physicsBody, float mass);
 void physicsBodyStaticSet(PhysicsBody* physicsBody, bool isStatic);
 
 void physicsBodySetCollidable(PhysicsBody* physicsBody, bool isCollidable);
 void physicsBodyAddForce(PhysicsBody* physicsBody, vec3 force);
+void physicsBodyAddVelocity(PhysicsBody* physicsBody, vec3 velocity);
+
+void resolveCollisions(PhysicsBody* target, PhysicsBody** bodies, float dt);
+bool isCollisionSphereToAabb(Collider* target, Collider* other);

@@ -3,6 +3,8 @@
 #include "math_types.h"
 #include <math.h>
 
+vec2 vec2_sub(vec2 a, vec2 b);
+
 vec3 vec3_add(vec3 a, vec3 b);
 vec3 vec3_sub(vec3 a, vec3 b);
 vec3 vec3_neg(vec3 a);

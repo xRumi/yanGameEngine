@@ -10,7 +10,6 @@
 
 #include "utils.h"
 
-#define VK_USE_PLATFORM_WAYLAND_KHR
 #include <vulkan/vulkan.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2

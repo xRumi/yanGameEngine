@@ -108,19 +108,6 @@ typedef struct Model {
     Collider collider;
 } Model;
 
-typedef struct Entity {
-    uint64_t id;
-    Model* model;
-    HashMap* nodeAnimations;
-    TimeManager timeManager;
-    Transform transform;
-    AtomicMatrix modelMatrix;
-    PhysicsBody* physicsBody;
-    Collider collider;
-    bool isHidden;
-    int generation;
-} Entity;
-
 #define POINT_LIGHT_MAX_COUNT 32
 #define DIRECTIONAL_LIGHT_MAX_COUNT 16
 typedef struct __attribute__((aligned(16))) PointLight {
@@ -162,3 +149,17 @@ typedef struct Scene {
     HashMap* entities; // TODO: make thread safe
     PhysicsEngine* physicsEngine;
 } Scene;
+
+typedef struct Entity {
+    uint64_t id;
+    Scene* scene;
+    Model* model;
+    HashMap* nodeAnimations;
+    TimeManager timeManager;
+    Transform transform;
+    AtomicMatrix modelMatrix;
+    PhysicsBody* physicsBody;
+    Collider collider;
+    bool isHidden;
+    int generation;
+} Entity;

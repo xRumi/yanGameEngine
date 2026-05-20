@@ -1,4 +1,5 @@
 #include "logger.h"
+#include <errno.h>
 
 const char* levelStrings[] = {
     ANSI_COLOR_RED ANSI_STYLE_BOLD "[FATAL] ",
@@ -23,4 +24,7 @@ void logOutput(logLevel level, const char* message, ...) {
     va_end(args);
     if (skipLevelString) printf("%s\n" ANSI_RESET_ALL, output);
     else printf("%s%s\n" ANSI_RESET_ALL, levelStrings[level], output);
+    if (level <= LOG_LEVEL_ERROR) {
+        printf(ANSI_COLOR_RED "[ERRNO] %s\n" ANSI_RESET_ALL, strerror(errno));
+    }
 }

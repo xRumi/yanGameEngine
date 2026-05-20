@@ -31,18 +31,7 @@ void createInstance() {
 }
 
 void createSurface() {
-#ifdef __linux__
-    VkWaylandSurfaceCreateInfoKHR createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-    createInfo.surface = platformGetPlatformState()->surface;
-    createInfo.display = platformGetPlatformState()->display;
-
-    if (vkCreateWaylandSurfaceKHR(internalStateRenderer.instance, &createInfo, NULL, &internalStateRenderer.surface) != VK_SUCCESS) {
-        FATAL("Failed to create vulkan wayland surface");
-    }
-#elif
-    FATAL("Failed to create vulkan surface, platform not implemented");
-#endif
+    internalStateRenderer.surface = platformCreateSurface(internalStateRenderer.instance);
 }
 
 QueueFamilyIndices findQueueFamilyIndices(VkPhysicalDevice device) {
@@ -471,12 +460,11 @@ void createDescriptorPool() {
 }
 
 void updateFrameUBO(double deltaTime) {
-    platformPullEvent();
     double elapsedTime = platformGetTime() - internalStateRenderer.startTime;
     (void)elapsedTime;
 
     if (platformWindowIsFocused() && platformPointerIsLocked()) {
-        PointerInput pointerRelative = platformInputPointerRelative();
+        vec2 pointerRelative = platformInputPointerRelative();
         // rotation(euler angle): x = yaw, y = pitch, z = roll
         internalStateRenderer.scene->camera.rotation.x += -pointerRelative.x / (float)platformGetPlatformState()->width * internalStateRenderer.scene->camera.sensitivity;
         internalStateRenderer.scene->camera.rotation.y += -pointerRelative.y / (float)platformGetPlatformState()->height * internalStateRenderer.scene->camera.sensitivity;
@@ -502,7 +490,7 @@ void updateFrameUBO(double deltaTime) {
     internalStateRenderer.scene->frameUBO.cameraPosition = vec4_from_vec3(internalStateRenderer.scene->camera.position, 0);
 
     PipelineState* pipelineState;
-    darray_foreach_pointer(internalStateRenderer.pipelineStates, pipelineState) {
+    darray_foreach(internalStateRenderer.pipelineStates, pipelineState) {
         memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->frameUBO, sizeof(FrameUBO));
         memcpy(pipelineState->lightUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->lightUBO, sizeof(LightUBO));
     }
@@ -706,10 +694,14 @@ void cleanupSwapchain() {
     vkDestroyImageView(internalStateRenderer.device, internalStateRenderer.depthImageView, NULL);
     vkDestroyImage(internalStateRenderer.device, internalStateRenderer.depthImage, NULL);
     vkFreeMemory(internalStateRenderer.device, internalStateRenderer.depthImageMemory, NULL);
-    darray_foreach_inline_decl(internalStateRenderer.framebuffers, VkFramebuffer, framebuffer)
-        vkDestroyFramebuffer(internalStateRenderer.device, framebuffer, NULL);
-    darray_foreach_inline_decl(internalStateRenderer.swapchainImageViews, VkImageView, imageView)
-        vkDestroyImageView(internalStateRenderer.device, imageView, NULL);
+
+    VkFramebuffer* framebuffer;
+    darray_foreach(internalStateRenderer.framebuffers, framebuffer)
+        vkDestroyFramebuffer(internalStateRenderer.device, *framebuffer, NULL);
+    VkImageView* imageView;
+    darray_foreach(internalStateRenderer.swapchainImageViews, imageView)
+        vkDestroyImageView(internalStateRenderer.device, *imageView, NULL);
+    
     vkDestroySwapchainKHR(internalStateRenderer.device, internalStateRenderer.swapchain, NULL);
 }
 void recreateSwapchain() {
@@ -720,7 +712,7 @@ void recreateSwapchain() {
     vkDeviceWaitIdle(internalStateRenderer.device);
 
     cleanupSwapchain();
-    
+
     createSwapchain();
     createColorResources();
     createDepthResources();
@@ -731,7 +723,7 @@ void drawFrame(double deltaTime) {
     vkWaitForFences(internalStateRenderer.device, 1, &internalStateRenderer.inFlightFences[internalStateRenderer.currentFrame], VK_TRUE, UINT32_MAX);
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(internalStateRenderer.device, internalStateRenderer.swapchain, UINT32_MAX, internalStateRenderer.imageAvailableSemaphores[internalStateRenderer.currentFrame], VK_NULL_HANDLE, &imageIndex);
-    if (platformGetPlatformState()->isWindowResized || result == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain();
         platformGetPlatformState()->isWindowResized = false;
         return;

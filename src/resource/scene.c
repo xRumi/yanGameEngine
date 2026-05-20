@@ -12,10 +12,11 @@ void sceneDestroy(Scene* scene);
 
 Entity* sceneCreateEntity(Scene* scene, Model* model) {
     Entity* entity = entityCreate(model);
-    hashmap_put(scene->entities, entity->id, (uint64_t)entity);
+    sceneAddEntity(scene, entity);
     return entity;
 }
 void sceneAddEntity(Scene* scene, Entity* entity) {
+    entity->scene = scene;
     hashmap_put(scene->entities, entity->id, (uint64_t)entity);
 }
 void sceneDestoryEntity(Scene* scene, Entity* entity) {
@@ -60,14 +61,4 @@ void sceneRemoveDirectionalLight(Scene* scene, DirectionalLight* light) {
 }
 void sceneCameraSetPosition(Scene* scene, vec3 position) {
     scene->camera.position = position;
-}
-
-void sceneEntityCreatePhysicsBody(Scene* scene, Entity* entity) {
-    PhysicsBody* physicsBody = memalloc(sizeof(PhysicsBody), MEMORY_TAG_PHYSICS);
-    physicsBody->mass = 1;
-    physicsBody->massInverse = 1.0 / physicsBody->mass;
-    physicsBody->collider = &entity->collider;
-    darray_push(scene->physicsEngine->bodies, physicsBody);
-    entity->physicsBody = physicsBody;
-    physicsBody->transform = &entity->transform;
 }

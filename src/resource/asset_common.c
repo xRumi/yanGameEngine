@@ -1,6 +1,9 @@
 #include "asset_manager.h"
 
-void load_default_images(HashMap* images) {
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+
+void imagesPutDefaultImages(HashMap* images) {
     Image* image0 = memalloc(sizeof(Image), MEMORY_TAG_ASSET_MANAGER),
         *image1 = memalloc(sizeof(Image), MEMORY_TAG_ASSET_MANAGER);
     image0->width = image0->height = 1;
@@ -13,7 +16,23 @@ void load_default_images(HashMap* images) {
     hashmap_put(images, hash_string("__baseColor255"), (uint64_t)image1);
 }
 
-Material* create_default_material(HashMap* images) {
+Image* imageLoadFromPath(const char* path) {
+    (void)stbi__mul2shorts_valid;
+    (void)stbi__addints_valid;
+    int width = 0, height = 0, channel = 0;
+    stbi_uc* pixels = stbi_load(path, &width, &height, &channel, STBI_rgb_alpha);
+    if (!pixels) {
+        WARN("Failed to load image, skipping");
+        return NULL;
+    }
+    Image* image = memalloc(sizeof(Image), MEMORY_TAG_ASSET_MANAGER);
+    image->height = height;
+    image->width = width;
+    image->data = pixels;
+    return image;
+}
+
+Material* materialFromDefaultImages(HashMap* images) {
     Material* ret = memalloc(sizeof(Material), MEMORY_TAG_ASSET_MANAGER);
     ret->baseColor.image = (Image*)hashmap_get(images, hash_string("__baseColor255"));
     ret->normal.image = (Image*)hashmap_get(images, hash_string("__baseColor0"));
@@ -29,19 +48,19 @@ mat4 mat4FromTransform(Transform transform) {
     return mat4_mul(translation, mat4_mul(rotation, scale));
 }
 
-void calculate_model_AABB(Model* model) {
-    float halfDimension = 0;
+void updateModelColliderHalfDimensions(Model* model) {
+    vec3 halfDimensions = {};
     Material* material;
     hashmap_foreach(model->materials, material) {
         int meshCount = darray_get_length(model->meshes);
         for (int i = 0; i < meshCount; i++) {
-            halfDimension = MAX(halfDimension, model->meshes[i].collider.halfDimension);
+            halfDimensions = vec3_max(halfDimensions, model->meshes[i].collider.halfDimensions);
         }
     }
-    model->collider.halfDimension = halfDimension;
+    model->collider.halfDimensions = halfDimensions;
 }
 
-void calculate_mesh_AABB(Mesh* mesh) {
+void updateMeshColliderHalfDimensions(Mesh* mesh) {
     vec3 min = {{INFINITY, INFINITY, INFINITY}};
     vec3 max = {{-INFINITY, -INFINITY, -INFINITY}};
     int vertexCount = darray_get_length(mesh->vertices);
@@ -50,5 +69,5 @@ void calculate_mesh_AABB(Mesh* mesh) {
         min = vec3_min(min, position);
         max = vec3_max(max, position);
     }
-    mesh->collider.halfDimension = vec3_length(vec3_sub(max, min)) * 0.5;
+    mesh->collider.halfDimensions = vec3_scale(vec3_sub(max, min), 0.5);
 }

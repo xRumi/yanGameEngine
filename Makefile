@@ -1,27 +1,44 @@
 SRC_DIR = ./src
 BUILD_DIR = ./build
-LIB_DIR = ./lib
+ExINC_DIR = ./includes
+ExLIB_DIR = ./libs
 
 SRCS = $(shell find $(SRC_DIR) -name '*.c')
 OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS = $(OBJS:%.o=%.d)
 
-INC_DIRS = $(shell find $(SRC_DIR) -type d) $(LIB_DIR)
+INC_DIRS = $(shell find $(SRC_DIR) -type d) $(ExINC_DIR)
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 CPPFLAGS = $(INC_FLAGS) -MMD -MP
+LDFLAGS  = -L$(ExLIB_DIR)
 
-PLATFORM ?= Linux
+USE_GLFW = aye
+
+ifeq ($(OS), Windows_NT)
+	PLATFORM ?= Windows
+else
+	PLATFORM ?= $(shell uname -s)
+endif
+
 ifeq ($(PLATFORM), Linux)
 	TARGET = main
 	CC = gcc
-	CFLAGS = -fpic -Wall
-	LDFLAGS = -lvulkan -lxkbcommon -lm
-	PLATFORMFLAGS += -lwayland-client
-else
-noname:
-	@echo "Platform '$(PLATFORM)' not supported, exiting"
-	@exit
+	CFLAGS += -fpic -Wall
+	LDFLAGS += -lvulkan -lxkbcommon -lm -pthread
+	ifdef USE_GLFW
+		CPPFLAGS += -DUSE_GLFW
+		LDFLAGS += -lglfw
+	else ifdef WAYLAND_DISPLAY
+		CPPFLAGS += -DUSE_WAYLAND
+		LDFLAGS += -lwayland-client
+	endif
+else ifeq ($(PLATFORM), Windows)
+	TARGET = main.exe
+	CC = gcc
+	CFLAGS += -fpic -Wall
+	LDFLAGS += -lvulkan-1 -lglfw3 -lgdi32 -lm -pthread
+	CPPFLAGS += -DUSE_GLFW
 endif
 
 BUILD_TYPE ?= debug
@@ -32,7 +49,7 @@ else
 endif
 
 $(BUILD_DIR)/$(TARGET): $(OBJS) shaders
-	$(CC) $(OBJS) $(LDFLAGS) $(PLATFORMFLAGS) -o $@
+	$(CC) $(OBJS) $(LDFLAGS) $(DEFINES) -o $@
 
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
@@ -47,6 +64,6 @@ run: $(BUILD_DIR)/$(TARGET)
 clean:
 	rm -r $(BUILD_DIR)
 
-.PHONY: clean noname
+.PHONY: clean
 
 -include $(DEPS)

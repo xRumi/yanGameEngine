@@ -14,5 +14,5 @@ $ make run
 ```
 
 # Demos
-| ![demo1](./demo/demo1.gif) | ![This is an alt text.](./demo/demo2.gif) |
+| ![demo1](./assets/demo/demo1.gif) | ![This is an alt text.](./assets/demo/demo2.gif) |
 | ------------- |-------------:|

@@ -1,14 +1,11 @@
+#ifdef USE_WAYLAND
 #include "platform.h"
 
-#ifdef __linux__
-
-#include "hashMap.h"
-
 #include <wayland-client.h>
-#include "xdg-shell-client-protocol.h"
-#include "xdg-decoration-unstable-v1-protocol.h"
-#include "relative-pointer-unstable-v1.h"
-#include "pointer-constraints-unstable-v1.h"
+#include "wayland-protocals/xdg-shell-client-protocol.h"
+#include "wayland-protocals/xdg-decoration-unstable-v1-protocol.h"
+#include "wayland-protocals/relative-pointer-unstable-v1.h"
+#include "wayland-protocals/pointer-constraints-unstable-v1.h"
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -18,8 +15,9 @@
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
+#include "hashMap.h"
 
-PlatformState platformState;
+PlatformState globalStatePlatform;
 
 struct {
     struct wl_display* wl_display;
@@ -46,8 +44,8 @@ struct {
     bool wl_pointer_inside_surface;
     bool hide_cursor;
     uint32_t wl_pointer_serial;
-    PointerInput wl_pointer_last_input;
-    PointerInput wl_relative_pointer_last_input;
+    vec2 wl_pointer_last_input;
+    vec2 wl_relative_pointer_last_input;
 
 } internalStatePlatform;
 
@@ -101,14 +99,14 @@ const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 void xdg_toplevel_configure(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height, struct wl_array* states) {
-    if (platformState.isWindowResizable && width && height && (platformState.width != width || platformState.height != height)) {
-        platformState.width = width;
-        platformState.height = height;
-        platformState.isWindowResized = true;
+    if (globalStatePlatform.isWindowResizable && width && height && (globalStatePlatform.width != width || globalStatePlatform.height != height)) {
+        globalStatePlatform.width = width;
+        globalStatePlatform.height = height;
+        globalStatePlatform.isWindowResized = true;
     }
 }
 void xdg_toplevel_close(void* data, struct xdg_toplevel* xdg_toplevel) {
-    platformState.isWindowClosed = 1;
+    globalStatePlatform.isWindowClosed = 1;
     TRACE("Window closed");
 }
 void xdg_toplevel_configure_bounds(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width, int32_t height) {
@@ -174,7 +172,7 @@ const struct wl_keyboard_listener wl_keyboard_listener = {
     .repeat_info = wl_keyboard_repeat_info,
 };
 void wl_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
-    internalStatePlatform.wl_pointer_last_input = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
+    internalStatePlatform.wl_pointer_last_input = (vec2){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
     internalStatePlatform.wl_pointer_inside_surface = true;
     internalStatePlatform.wl_pointer_serial = serial;
     if (internalStatePlatform.hide_cursor) wl_pointer_set_cursor(internalStatePlatform.wl_pointer, internalStatePlatform.wl_pointer_serial, NULL, 0, 0);
@@ -184,7 +182,7 @@ void wl_pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial
     internalStatePlatform.wl_pointer_inside_surface = true;
 }
 void wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
-    internalStatePlatform.wl_pointer_last_input = (PointerInput){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
+    internalStatePlatform.wl_pointer_last_input = (vec2){{wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)}};
 }
 void wl_pointer_button(void *data,
 		       struct wl_pointer *wl_pointer,
@@ -233,7 +231,7 @@ const struct wl_pointer_listener wl_pointer_listener = {
     .axis_relative_direction = wl_pointer_axis_relative_direction
 };
 void zwp_relative_pointer_v1_relative_motion(void *data, struct zwp_relative_pointer_v1 *zwp_relative_pointer_v1, uint32_t utime_hi, uint32_t utime_lo, wl_fixed_t dx, wl_fixed_t dy, wl_fixed_t dx_unaccel, wl_fixed_t dy_unaccel) {
-    internalStatePlatform.wl_relative_pointer_last_input = (PointerInput){{wl_fixed_to_int(dx), wl_fixed_to_int(dy)}};
+    internalStatePlatform.wl_relative_pointer_last_input = (vec2){{wl_fixed_to_int(dx), wl_fixed_to_int(dy)}};
 }
 const struct zwp_relative_pointer_v1_listener zwp_relative_pointer_v1_listener = {
     .relative_motion = zwp_relative_pointer_v1_relative_motion
@@ -309,12 +307,25 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
 
     wl_surface_commit(internalStatePlatform.wl_surface);
 
-    platformState.display = internalStatePlatform.wl_display;
-    platformState.surface = internalStatePlatform.wl_surface;
-    platformState.width = width;
-    platformState.height = height;
+    globalStatePlatform.display = internalStatePlatform.wl_display;
+    globalStatePlatform.surface = internalStatePlatform.wl_surface;
+    globalStatePlatform.width = width;
+    globalStatePlatform.height = height;
 
     platformPullEvent();
+}
+
+VkSurfaceKHR platformCreateSurface(VkInstance instance) {
+    VkSurfaceKHR surface;
+    VkWaylandSurfaceCreateInfoKHR createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+    createInfo.surface = platformGetPlatformState()->surface;
+    createInfo.display = platformGetPlatformState()->display;
+
+    if (vkCreateWaylandSurfaceKHR(instance, &createInfo, NULL, &surface) != VK_SUCCESS) {
+        FATAL("Failed to create vulkan wayland surface");
+    }
+    return surface;
 }
 
 void platformPullEvent() {
@@ -323,7 +334,7 @@ void platformPullEvent() {
 }
 
 PlatformState* platformGetPlatformState() {
-    return &platformState;
+    return &globalStatePlatform;
 }
 
 void platformShutdown() {
@@ -347,19 +358,21 @@ bool platformInputIsKeyDown(KeyboardInputMap key) {
     return hashmap_get(internalStatePlatform.keyboard_input_xkb, keyboard_input_xkb_map[key]);
 }
 
-PointerInput platformInputPointerCurr() {
+vec2 platformInputPointerCurr() {
     return internalStatePlatform.wl_pointer_last_input;
 }
-PointerInput platformInputPointerRelative() {
-    PointerInput ret = internalStatePlatform.wl_pointer_inside_surface ? internalStatePlatform.wl_relative_pointer_last_input : (PointerInput){{}};
-    internalStatePlatform.wl_relative_pointer_last_input = (PointerInput){{}};
+vec2 platformInputPointerRelative() {
+    vec2 ret = internalStatePlatform.wl_pointer_inside_surface ? internalStatePlatform.wl_relative_pointer_last_input : (vec2){{}};
+    internalStatePlatform.wl_relative_pointer_last_input = (vec2){{}};
     return ret;
 }
 
 void platformPointerLock() {
+    platformPointerHide();
     if (!internalStatePlatform.zwp_locked_pointer_v1) internalStatePlatform.zwp_locked_pointer_v1 = zwp_pointer_constraints_v1_lock_pointer(internalStatePlatform.zwp_pointer_constraints_v1, internalStatePlatform.wl_surface, internalStatePlatform.wl_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
 }
 void platformPointerUnlock() {
+    platformPointerUnhide();
     if (internalStatePlatform.zwp_locked_pointer_v1) zwp_locked_pointer_v1_destroy(internalStatePlatform.zwp_locked_pointer_v1);
     internalStatePlatform.zwp_locked_pointer_v1 = NULL;
 }
@@ -377,7 +390,7 @@ void platformPointerUnhide() {
 }
 
 void platformWindowSetResizable(bool enable) {
-    platformState.isWindowResizable = enable;
+    globalStatePlatform.isWindowResizable = enable;
 }
 
 void platformWindowSetFullScreen(bool fullscreen) {

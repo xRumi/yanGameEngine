@@ -24,6 +24,18 @@ void entitySetHidden(Entity* entity, bool isHidden) {
 void entityTransformSetTranslation(Entity* entity, vec3 translation) {
     entity->transform.translation = translation;
 }
+void entityTransformSetTranslationX(Entity* entity, float x) {
+    entity->transform.translation.x = x;
+}
+void entityTransformSetTranslationY(Entity* entity, float y) {
+    entity->transform.translation.y = y;
+}
+void entityTransformSetTranslationZ(Entity* entity, float z) {
+    entity->transform.translation.z = z;
+}
+void entityTransformSetScale(Entity* entity, vec3 scale) {
+    entity->transform.scale = scale;
+}
 void entityTransformApply(Entity* entity) {
     mat4 model = mat4FromTransform(entity->transform);
     atomicMatrixSetMatrix(&entity->modelMatrix, model);
@@ -37,8 +49,21 @@ void entityTransformReset(Entity* entity) {
 mat4 entityGetModelMatrix(Entity* entity) {
     return atomicMatrixGetMatrix(&entity->modelMatrix);
 }
+void entityCreatePhysicsBody(Entity* entity) {
+    PhysicsBody* physicsBody = memalloc(sizeof(PhysicsBody), MEMORY_TAG_PHYSICS);
+    physicsBody->mass = 1;
+    physicsBody->massInverse = 1.0 / physicsBody->mass;
+    physicsBody->collider = &entity->collider;
+    physicsBody->gravity = entity->scene->physicsEngine->gravity;
+    darray_push(entity->scene->physicsEngine->bodies, physicsBody);
+    entity->physicsBody = physicsBody;
+    physicsBody->transform = &entity->transform;
+}
 void entityPhysicsBodyAddForce(Entity* entity, vec3 force) {
     if (entity->physicsBody) physicsBodyAddForce(entity->physicsBody, force);
+}
+void entityPhysicsBodyAddVelocity(Entity* entity, vec3 velocity) {
+    if (entity->physicsBody) physicsBodyAddVelocity(entity->physicsBody, velocity);
 }
 HashMap* entityCreateNodeAnimations(Model* model) {
     HashMap* nodeAnimations = hashmap_create(20);

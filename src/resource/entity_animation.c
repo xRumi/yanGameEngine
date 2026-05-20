@@ -8,7 +8,9 @@ void updateNodeAnimationGeneration(Entity* entity, NodeAnimation* nodeAnimation)
 }
 void propagateNodeTransform(Entity* entity, NodeAnimation* nodeAnimation) {
     mat4 parentPropagraion = nodeAnimation->propagration;
-    darray_foreach_inline_decl(nodeAnimation->node->child, Node*, n) {
+    Node** childRef;
+    darray_foreach(nodeAnimation->node->child, childRef) {
+        Node* n = *childRef;
         NodeAnimation* childAnimation = (NodeAnimation*)hashmap_get(entity->nodeAnimations, (uint64_t)n);
         updateNodeAnimationGeneration(entity, childAnimation);
         childAnimation->propagration = mat4_mul(parentPropagraion, childAnimation->propagration);
