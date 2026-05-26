@@ -8,7 +8,7 @@ HashMap* hashmap_create(uint64_t capacity) {
     HashMap* hashMap = memalloc(sizeof(HashNode), MEMORY_TAG_HASHMAP);
     hashMap->capacity = capacity;
     hashMap->size = 0;
-    hashMap->nodes = darray_create_reserve_memoryTag(HashNode*, capacity, MEMORY_TAG_HASHMAP);
+    hashMap->nodes = darray_create_resized_memoryTag(HashNode*, capacity, MEMORY_TAG_HASHMAP);
     return hashMap;
 }
 void hashmap_put(HashMap* hashMap, uint64_t key, uint64_t val) {

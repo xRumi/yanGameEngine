@@ -38,7 +38,7 @@ QueueFamilyIndices findQueueFamilyIndices(VkPhysicalDevice device) {
     QueueFamilyIndices familyIndices = {-1, -1, false};
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
-    VkQueueFamilyProperties* queueFamilyProperties = darray_create_reserve(VkQueueFamilyProperties, queueFamilyCount);
+    VkQueueFamilyProperties* queueFamilyProperties = darray_create_resized(VkQueueFamilyProperties, queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilyProperties);
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
         if (darray_at_type(queueFamilyProperties, i, VkQueueFamilyProperties).queueFlags & VK_QUEUE_GRAPHICS_BIT) familyIndices.graphicsFamily = i;
@@ -59,11 +59,11 @@ SwapchainSupportDetails findSwapchainSupportDetails(VkPhysicalDevice device) {
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, internalStateRenderer.surface, &details.capabilities);
     uint32_t formatCount = 0;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, internalStateRenderer.surface, &formatCount, NULL);
-    details.formats = darray_create_reserve(VkSurfaceFormatKHR, formatCount);
+    details.formats = darray_create_resized(VkSurfaceFormatKHR, formatCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, internalStateRenderer.surface, &formatCount, details.formats);
     uint32_t presentModeCount = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, internalStateRenderer.surface, &presentModeCount, NULL);
-    details.presentModes = darray_create_reserve(VkSurfacePresentModeKHR, presentModeCount);
+    details.presentModes = darray_create_resized(VkSurfacePresentModeKHR, presentModeCount);
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, internalStateRenderer.surface, &presentModeCount, details.presentModes);
     if (formatCount > 0 && presentModeCount > 0) details.isComplete = true;
 
@@ -89,7 +89,7 @@ void pickPhysicalDevice() {
     // Get physical devices
     uint32_t physicalDeviceCount = 0;
     vkEnumeratePhysicalDevices(internalStateRenderer.instance, &physicalDeviceCount, NULL);
-    VkPhysicalDevice* physicalDevices = darray_create_reserve(VkPhysicalDevice, physicalDeviceCount);
+    VkPhysicalDevice* physicalDevices = darray_create_resized(VkPhysicalDevice, physicalDeviceCount);
     vkEnumeratePhysicalDevices(internalStateRenderer.instance, &physicalDeviceCount, physicalDevices);
 
     // Find the best GPU
@@ -114,7 +114,7 @@ void pickPhysicalDevice() {
         // check for required device extension support
         uint32_t deviceExtensionsCount;
         vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionsCount, NULL);
-        VkExtensionProperties* extensions = darray_create_reserve(VkExtensionProperties, deviceExtensionsCount);
+        VkExtensionProperties* extensions = darray_create_resized(VkExtensionProperties, deviceExtensionsCount);
         vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionsCount, extensions);
         uint32_t requiredDeviceExtensionsCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
         bool allExtensionFound = true;
@@ -262,12 +262,12 @@ void createSwapchain() {
     // get swapchain images and create image views for them
     uint32_t swapchainImageCount = 0;
     vkGetSwapchainImagesKHR(internalStateRenderer.device, internalStateRenderer.swapchain, &swapchainImageCount, NULL);
-    internalStateRenderer.swapchainImages = darray_create_reserve(VkImage, swapchainImageCount);
+    internalStateRenderer.swapchainImages = darray_create_resized(VkImage, swapchainImageCount);
     vkGetSwapchainImagesKHR(internalStateRenderer.device, internalStateRenderer.swapchain, &swapchainImageCount, internalStateRenderer.swapchainImages);
     
     internalStateRenderer.swapchainImageFormat = format.format;
     internalStateRenderer.swapchainImageExtent = extent;
-    internalStateRenderer.swapchainImageViews = darray_create_reserve(VkImageView, swapchainImageCount);
+    internalStateRenderer.swapchainImageViews = darray_create_resized(VkImageView, swapchainImageCount);
     for (uint32_t i = 0; i < swapchainImageCount; i++)
         createImageView(internalStateRenderer, &internalStateRenderer.swapchainImageViews[i], internalStateRenderer.swapchainImages[i], internalStateRenderer.swapchainImageFormat, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
@@ -372,7 +372,7 @@ void createCommandPool() {
 }
 
 void createCommandBuffers() {
-    internalStateRenderer.commandBuffers = darray_create_reserve(VkCommandBuffer, MAX_FRAMES_IN_FLIGHT);
+    internalStateRenderer.commandBuffers = darray_create_resized(VkCommandBuffer, MAX_FRAMES_IN_FLIGHT);
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
@@ -396,7 +396,7 @@ void createDepthResources() {
 }
 
 void createFramebuffers() {
-    internalStateRenderer.framebuffers = darray_create_reserve(VkFramebuffer, darray_get_length(internalStateRenderer.swapchainImages));
+    internalStateRenderer.framebuffers = darray_create_resized(VkFramebuffer, darray_get_length(internalStateRenderer.swapchainImages));
     for (uint32_t i = 0; i < darray_get_length(internalStateRenderer.swapchainImages); i++) {
         VkImageView attachments[] = {internalStateRenderer.colorImageView, internalStateRenderer.depthImageView, internalStateRenderer.swapchainImageViews[i]};
         VkFramebufferCreateInfo createInfo = {};
@@ -415,9 +415,9 @@ void createFramebuffers() {
 }
 
 void createSyncObjects() {
-    internalStateRenderer.imageAvailableSemaphores = darray_create_reserve(VkSemaphore, MAX_FRAMES_IN_FLIGHT);
-    internalStateRenderer.renderFinishedSemaphores = darray_create_reserve(VkSemaphore, darray_get_length(internalStateRenderer.swapchainImageViews));
-    internalStateRenderer.inFlightFences = darray_create_reserve(VkFence, MAX_FRAMES_IN_FLIGHT);
+    internalStateRenderer.imageAvailableSemaphores = darray_create_resized(VkSemaphore, MAX_FRAMES_IN_FLIGHT);
+    internalStateRenderer.renderFinishedSemaphores = darray_create_resized(VkSemaphore, darray_get_length(internalStateRenderer.swapchainImageViews));
+    internalStateRenderer.inFlightFences = darray_create_resized(VkFence, MAX_FRAMES_IN_FLIGHT);
 
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

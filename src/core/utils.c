@@ -12,7 +12,7 @@ char* readFile(const char* filename) {
     if (size < 0) {
         FATAL("Failed to ftell file %s", filename);
     }
-    char* data = darray_create_reserve(char, size);
+    char* data = darray_create_resized(char, size);
     fseek(file, 0, SEEK_SET);
     fread(data, 1, size, file);
     fclose(file);

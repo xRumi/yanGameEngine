@@ -5,7 +5,7 @@ Model* createEmptyModel(const char* name) {
     model->name = name;
     model->materials = hashmap_create(1);
     model->images = hashmap_create(5);
-    model->meshes = darray_create_reserve(Mesh, 1);
+    model->meshes = darray_create_resized(Mesh, 1);
     model->nodes = hashmap_create(1);
     imagesPutDefaultImages(model->images);
     hashmap_put(model->materials, 0, (uint64_t)materialFromDefaultImages(model->images));

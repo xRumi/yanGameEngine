@@ -16,7 +16,7 @@ uint32_t* loadGLTFMeshIndices(const cgltf_accessor* accessor) {
         offset = accessor->offset,
         stride = accessor->stride;
     uint8_t* data = (uint8_t*)accessor->buffer_view->buffer->data + accessor->buffer_view->offset;
-    uint32_t* indices = darray_create_reserve_memoryTag(uint32_t, count, MEMORY_TAG_ASSET_MANAGER);
+    uint32_t* indices = darray_create_resized_memoryTag(uint32_t, count, MEMORY_TAG_ASSET_MANAGER);
     for (int i = 0; i < count; i++) {
         uint8_t* nthData = data + offset + stride * i;
         uint32_t index = 0;
@@ -34,7 +34,7 @@ uint32_t* loadGLTFMeshIndices(const cgltf_accessor* accessor) {
 Vertex* loadGLTFMeshVertices(const cgltf_attribute* attributes, uint32_t attributeCount) {
     if (!attributes) return NULL;
     uint32_t vertexCount = attributes[0].data->count;
-    Vertex* vertices = darray_create_reserve_memoryTag(Vertex, vertexCount, MEMORY_TAG_ASSET_MANAGER);
+    Vertex* vertices = darray_create_resized_memoryTag(Vertex, vertexCount, MEMORY_TAG_ASSET_MANAGER);
     for (int i = 0; i < vertexCount; i++) {
         vertices[i] = (Vertex){
             .position = {{0, 0, 0}},
@@ -109,7 +109,7 @@ HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
     HashMap* nodes = hashmap_create(gltf_data->nodes_count);
     for (int i = 0; i < gltf_data->nodes_count; i++) {
         Node* node = memalloc(sizeof(Node), MEMORY_TAG_ASSET_MANAGER);
-        node->child = darray_create_reserve_memoryTag(Node*, gltf_data->nodes[i].children_count, MEMORY_TAG_ASSET_MANAGER);
+        node->child = darray_create_resized_memoryTag(Node*, gltf_data->nodes[i].children_count, MEMORY_TAG_ASSET_MANAGER);
         cgltf_node_transform_world(&gltf_data->nodes[i], node->matrix.ele);
         hashmap_put(nodes, (uint64_t)&gltf_data->nodes[i], (uint64_t)node);
     }
@@ -135,8 +135,8 @@ HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
             switch (channel->target_path) {
                 case cgltf_animation_path_type_invalid:
                 case cgltf_animation_path_type_translation: {
-                    node->animationSampler.translation.input = darray_create_reserve_memoryTag(float, sampler->input->count, MEMORY_TAG_ASSET_MANAGER);
-                    node->animationSampler.translation.output = darray_create_reserve_memoryTag(vec3, sampler->output->count, MEMORY_TAG_ASSET_MANAGER);
+                    node->animationSampler.translation.input = darray_create_resized_memoryTag(float, sampler->input->count, MEMORY_TAG_ASSET_MANAGER);
+                    node->animationSampler.translation.output = darray_create_resized_memoryTag(vec3, sampler->output->count, MEMORY_TAG_ASSET_MANAGER);
                     for (int k = 0; k < sampler->input->count; k++) {
                         float time;
                         vec3 translation = {};
@@ -228,7 +228,7 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
     model->name = gltf_file;
     model->images = loadGLTFImages(gltf_dir, gltf_data->images, gltf_data->images_count);
     model->materials = loadGLTFMaterials(gltf_data->materials, gltf_data->materials_count, model->images);
-    model->meshes = darray_create_reserve_memoryTag(Mesh, gltf_data->meshes_count, MEMORY_TAG_ASSET_MANAGER);
+    model->meshes = darray_create_resized_memoryTag(Mesh, gltf_data->meshes_count, MEMORY_TAG_ASSET_MANAGER);
     model->nodes = loadGLTFNodes(gltf_data);
 
     stringBuilderConcat(&traceStr, "Image: %d\n", gltf_data->images_count);

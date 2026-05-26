@@ -19,7 +19,7 @@ void randomizeTwoPillarTranslation(TwoPillar* pillar, float minHeight, float max
 }
 
 TwoPillar* createTwoPillarArray(Model* pillar, Scene* scene, int count, float start, float distance) {
-    TwoPillar* array = darray_create_reserve(TwoPillar, count);
+    TwoPillar* array = darray_create_resized(TwoPillar, count);
     for (int i = 0; i < count; i++) {
         Entity* upperPillar = sceneCreateEntity(scene, pillar);
         entityTransformSetTranslation(upperPillar, (vec3){{start + distance * i, 2, 0.5}});

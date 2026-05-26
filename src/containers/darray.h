@@ -13,7 +13,7 @@ typedef struct DarrayState {
 #define _DARRAY_INITIAL_CAPACITY 2
 
 void* _darray_create(uint64_t capacity, uint64_t stride, enum MemoryTag memoryTag);
-void* _darray_create_reserve(uint64_t length, uint64_t stride, enum MemoryTag memoryTag);
+void* _darray_create_resized(uint64_t length, uint64_t stride, enum MemoryTag memoryTag);
 void _darray_destroy(void* darray);
 
 void* _darray_insert_at(void* darray, const void* data, uint64_t index);
@@ -23,8 +23,8 @@ DarrayState* _darray_get_state(const void* darray);
 
 #define darray_create_memoryTag(type, memoryTag) _darray_create(_DARRAY_INITIAL_CAPACITY, sizeof(type), memoryTag)
 #define darray_create(type) darray_create_memoryTag(type, MEMORY_TAG_DARRAY)
-#define darray_create_reserve_memoryTag(type, length, memoryTag) _darray_create_reserve(length, sizeof(type), memoryTag)
-#define darray_create_reserve(type, length) darray_create_reserve_memoryTag(type, length, MEMORY_TAG_DARRAY);
+#define darray_create_resized_memoryTag(type, length, memoryTag) _darray_create_resized(length, sizeof(type), memoryTag)
+#define darray_create_resized(type, length) darray_create_resized_memoryTag(type, length, MEMORY_TAG_DARRAY);
 #define darray_insert_at(darray, data, index)                                                   \
     {                                                                                           \
         typeof(data) __temp = data;                                                             \
