@@ -2,12 +2,12 @@
 
 uint64_t UniqueEntityId = 1;
 
-Entity* entityCreate(Model* model) {
+Entity* entityCreate(Model* model, bool isHidden) {
     Entity* entity = memalloc(sizeof(Entity), MEMORY_TAG_ENTITY);
     entity->id = UniqueEntityId++;
     entity->model = model;
     entity->nodeAnimations = entityCreateNodeAnimations(model);
-    entity->isHidden = true;
+    entity->isHidden = isHidden;
     entity->transform.scale = (vec3){{1, 1, 1}};
     entity->modelMatrix.buffers[0] = mat4_identity();
     entity->modelMatrix.buffers[1] = mat4_identity();

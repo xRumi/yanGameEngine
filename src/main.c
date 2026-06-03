@@ -36,9 +36,6 @@ TwoPillar* createTwoPillarArray(Model* pillar, Scene* scene, int count, float st
             .lower = lowerPillar
         };
         randomizeTwoPillarTranslation(&array[i], 1, 2);
-
-        entitySetHidden(upperPillar, false);
-        entitySetHidden(lowerPillar, false);
     }
     return array;
 }
@@ -85,7 +82,7 @@ int main() {
     Scene* scene = sceneCreate();
 
     Entity* backgroundEntity = sceneCreateEntity(scene, background);
-    entitySetHidden(backgroundEntity, false);
+    (void)backgroundEntity;
 
     TwoPillar* twoPillarArray = createTwoPillarArray(pillar, scene, 4, 0, 2.5);
 
@@ -93,7 +90,6 @@ int main() {
     entityTransformSetTranslation(birdEntity, (vec3){{-1.6, 0, 0.5}});
     entityCreatePhysicsBody(birdEntity);
     physicsBodyGravitySet(birdEntity->physicsBody, 5);
-    entitySetHidden(birdEntity, false);
 
     sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
     sceneCameraSetPosition(scene, (vec3){{0, 0, 7}});

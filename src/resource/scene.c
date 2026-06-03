@@ -11,10 +11,16 @@ Scene* sceneCreate() {
 void sceneDestroy(Scene* scene);
 
 Entity* sceneCreateEntity(Scene* scene, Model* model) {
-    Entity* entity = entityCreate(model);
+    Entity* entity = entityCreate(model, false);
     sceneAddEntity(scene, entity);
     return entity;
 }
+Entity* sceneCreateEntityHidden(Scene* scene, Model* model) {
+    Entity* entity = entityCreate(model, true);
+    sceneAddEntity(scene, entity);
+    return entity;
+}
+
 void sceneAddEntity(Scene* scene, Entity* entity) {
     entity->scene = scene;
     hashmap_put(scene->entities, entity->id, (uint64_t)entity);

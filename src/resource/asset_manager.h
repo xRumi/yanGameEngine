@@ -17,7 +17,7 @@ void imagesPutDefaultImages(HashMap* images);
 Material* materialFromDefaultImages(HashMap* images);
 mat4 mat4FromTransform(Transform transform);
 
-Entity* entityCreate(Model* model);
+Entity* entityCreate(Model* model, bool isHidden);
 void entitySetHidden(Entity* entity, bool isHidden);
 void entityTransformSetTranslation(Entity* entity, vec3 a);
 void entityTransformSetTranslationX(Entity* entity, float x);
@@ -37,6 +37,7 @@ Scene* sceneCreate();
 void sceneDestroy(Scene* scene);
 void sceneAddEntity(Scene* scene, Entity* entity);
 Entity* sceneCreateEntity(Scene* scene, Model* model);
+Entity* sceneCreateEntityHidden(Scene* scene, Model* model);
 void sceneDestoryEntity(Scene* scene, Entity* entity);
 void sceneEntityApplyTransform(Scene* scene);
 PointLight* sceneAddPointLight(Scene* scene);
