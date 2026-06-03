@@ -1,6 +1,26 @@
 #include "utils.h"
 #include "platform.h"
 
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio/miniaudio.h"
+
+struct {
+    bool soundEngineInit;
+    ma_engine soundEngine;
+    ma_result soundEngineResult;
+} internalStateUtil;
+
+void playSound(const char* path) {
+    if (!internalStateUtil.soundEngineInit) {
+        internalStateUtil.soundEngineInit = true;
+        if ((internalStateUtil.soundEngineResult = ma_engine_init(NULL, &internalStateUtil.soundEngine)) != MA_SUCCESS) {
+            WARN("Failed to initialize sound engine");
+        }
+    }
+    if (internalStateUtil.soundEngineResult == MA_SUCCESS)
+        ma_engine_play_sound(&internalStateUtil.soundEngine, path, NULL);
+}
+
 char* readFile(const char* filename) {
     FILE* file = fopen(filename, "rb");
     if (file == NULL) {

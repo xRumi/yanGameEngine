@@ -7,6 +7,7 @@
 
 #define DEBUG_vec3(v) DEBUG("(%.2f, %.2f, %.2f)", v.x, v.y, v.z)
 
+void playSound(const char* path);
 char* readFile(const char* filename);
 float clamp(float val, float min, float max);
 void stringBuilderConcat(char** darray, const char* message, ...);

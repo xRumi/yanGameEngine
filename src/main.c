@@ -10,7 +10,6 @@ typedef struct TwoPillar {
     bool scored;
 } TwoPillar;
 
-
 void randomizeTwoPillarTranslation(TwoPillar* pillar, float minHeight, float maxHeight) {
     int height = clamp(rand() % 10, minHeight, maxHeight);
     float center = 3 * (rand() / (double)RAND_MAX) - 1.5;
@@ -137,6 +136,7 @@ int main() {
 
         if (!gameOver && !paused) {
             if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
+                playSound("./assets/sounds/sfx_wing.wav");
                 birdEntity->physicsBody->velocity.y = 3;
             }
             TwoPillar* piller;
@@ -144,6 +144,7 @@ int main() {
                 if (piller->upper->transform.translation.x <= birdEntity->transform.translation.x && !piller->scored) {
                     score++;
                     piller->scored = true;
+                    playSound("./assets/sounds/sfx_point.wav");
                     DEBUG("score = %d", score);
                 }
                 if (piller->upper->transform.translation.x <= -5) {
@@ -162,6 +163,7 @@ int main() {
             }
             if (birdEntity->transform.translation.y > 2.75 || birdEntity->transform.translation.y < -2.75 || gameOver) {
                 gameOver = true;
+                playSound("./assets/sounds/sfx_hit.wav");
                 WARN("GAME OVER\n\tPress ESC to close..");
             }
             if (gameOver) continue;
