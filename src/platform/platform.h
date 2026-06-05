@@ -36,6 +36,7 @@ typedef enum KeyboardInputMap {
 } KeyboardInputMap;
 
 void platformInitialize(const char* windowTitle, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+const char** platformGetRequiredVulkanExtensions();
 VkSurfaceKHR platformCreateSurface(VkInstance instance);
 void platformPullEvent();
 void platformShutdown();

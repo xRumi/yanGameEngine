@@ -2,7 +2,6 @@
 #include "asset_manager.h"
 
 const char* instanceLayers[] = {"VK_LAYER_KHRONOS_validation"};
-const char* instanceExtensions[] = {VK_KHR_DISPLAY_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME};
 const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE1_EXTENSION_NAME};
 
 extern int isWindowClosed;
@@ -17,17 +16,21 @@ void createInstance() {
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_0;
 
+    const char** exts = platformGetRequiredVulkanExtensions();
+
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
     createInfo.enabledLayerCount = sizeof(instanceLayers) / sizeof(instanceLayers[0]);
     createInfo.ppEnabledLayerNames = instanceLayers;
-    createInfo.enabledExtensionCount = sizeof(instanceExtensions) / sizeof(instanceExtensions[0]);
-    createInfo.ppEnabledExtensionNames = instanceExtensions;
+    createInfo.enabledExtensionCount = darray_get_length(exts);
+    createInfo.ppEnabledExtensionNames = (const char**)exts;
     
     if (vkCreateInstance(&createInfo, NULL, &internalStateRenderer.instance) != VK_SUCCESS) {
         FATAL("Failed to create vk instance");
     }
+
+    darray_destroy(exts);
 }
 
 void createSurface() {

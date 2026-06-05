@@ -315,6 +315,14 @@ void platformInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_
     platformPullEvent();
 }
 
+const char** platformGetRequiredVulkanExtensions() {
+    const char** ret = darray_create_resized(void*, 3);
+    ret[0] = VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME;
+    ret[1] = (void*)VK_KHR_DISPLAY_EXTENSION_NAME;
+    ret[2] = (void*)VK_KHR_SURFACE_EXTENSION_NAME;
+    return ret;
+}
+
 VkSurfaceKHR platformCreateSurface(VkInstance instance) {
     VkSurfaceKHR surface;
     VkWaylandSurfaceCreateInfoKHR createInfo = {};

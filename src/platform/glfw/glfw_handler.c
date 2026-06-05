@@ -1,6 +1,7 @@
 #include "emath.h"
 #include "platform.h"
 #include <pthread.h>
+#include <darray.h>
 
 #ifdef USE_GLFW
 
@@ -43,6 +44,16 @@ void platformInitialize(const char* windowTitle, uint32_t x, uint32_t y, uint32_
     glfwSetWindowSizeCallback(internalStatePlatform.window, &glfw_window_size);
     glfwSetCursorPosCallback(internalStatePlatform.window, &glfw_cursor_pos);
 }
+
+const char** platformGetRequiredVulkanExtensions() {
+    uint32_t extCount;
+    const char** exts = glfwGetRequiredInstanceExtensions(&extCount);
+    const char** ret = darray_create_resized(void*, extCount);
+    for (int i = 0; i < extCount; i++)
+        ret[i] = (void*)exts[i];
+    return ret;
+}
+
 VkSurfaceKHR platformCreateSurface(VkInstance instance) {
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(instance, internalStatePlatform.window, NULL, &surface) != VK_SUCCESS) FATAL("Failed to create window surface");
