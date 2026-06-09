@@ -70,7 +70,6 @@ void handleCamera(Camera* camera, double deltaTime) {
 
 int main() {
     uint32_t width = 600, height = 600;
-    double targetFrameTime = 1 / 120.0;
     engineInitialize("yanGameEngine - Physics Engine Test", 0, 0, width, height);
     rendererSetFPS(144);
 
@@ -108,6 +107,9 @@ int main() {
     WARN("Press g to start playing..");
 
     TimeManager timeManager = timeManagerStart();
+    double physicsElapsedTime = 0;
+    double physicsDt = 1 / 120.0;
+
     while (!platformGetPlatformState()->isWindowClosed) {
         timeManagerUpdate(&timeManager);
         handleCamera(&scene->camera, timeManager.deltaTime);
@@ -134,7 +136,7 @@ int main() {
             }
         }
 
-        if (!gameOver && !paused) {
+        if (!gameOver && !paused && timeManager.elapsedTime - physicsElapsedTime > physicsDt) {
             if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
                 playSound("./assets/sounds/sfx_wing.wav");
                 birdEntity->physicsBody->velocity.y = 3;
@@ -153,10 +155,8 @@ int main() {
                     randomizeTwoPillarTranslation(piller, 1.3, 2.1);
                     piller->scored = false;
                 }
-                entityPhysicsBodyAddVelocity(piller->upper, (vec3){{-0.015 * targetFrameTime}});
-                entityPhysicsBodyAddVelocity(piller->lower, (vec3){{-0.015 * targetFrameTime}});
-                piller->upper->physicsBody->velocity.x = clamp(piller->upper->physicsBody->velocity.x, -3, -1.5);
-                piller->lower->physicsBody->velocity.x = clamp(piller->lower->physicsBody->velocity.x, -3, -1.5);
+                piller->upper->physicsBody->velocity.x = clamp(piller->upper->physicsBody->velocity.x - 0.015 * physicsDt, -3, -1.5);
+                piller->lower->physicsBody->velocity.x = clamp(piller->lower->physicsBody->velocity.x - 0.015 * physicsDt, -3, -1.5);
                 if (isCollisionSphereToAabb(birdEntity->physicsBody->collider, piller->upper->physicsBody->collider) || isCollisionSphereToAabb(birdEntity->physicsBody->collider, piller->lower->physicsBody->collider)) {
                     gameOver = true;
                 }
@@ -168,14 +168,15 @@ int main() {
             }
             if (gameOver) continue;
 
-            physicsEngineRun(scene->physicsEngine, 1.0 / 120.0);
+            physicsEngineRun(scene->physicsEngine, physicsDt);
             sceneEntityApplyTransform(scene);
+            physicsElapsedTime = timeManager.elapsedTime;
         }
         platformPullEvent();
 
         double frameTime = platformGetTime() - timeManager.lastTime;
-        if (frameTime < targetFrameTime) {
-            double sleepTime = targetFrameTime - frameTime;
+        if (frameTime < physicsDt) {
+            double sleepTime = physicsDt - frameTime;
             platformSleep(sleepTime);
         }
     }
