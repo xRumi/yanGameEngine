@@ -42,8 +42,11 @@ DarrayState* _darray_get_state(const void* darray);
 #define darray_get_capacity(darray) _darray_get_state(darray)->capacity
 #define darray_get_stride(darray) _darray_get_state(darray)->stride
 
-#define darray_destroy(darray) _darray_destroy(darray)
-
+#define darray_destroy(darray)      \
+    {                               \
+        _darray_destroy(darray);    \
+        darray = NULL;              \
+    }
 extern volatile int volatile_true;
 #define darray_foreach(darray, x) \
     for (int __size = darray_get_length(darray), __i = 0; __i < __size && ((x = darray_at(darray, __i)) || volatile_true); __i++)
