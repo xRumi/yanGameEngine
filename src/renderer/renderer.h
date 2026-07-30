@@ -5,14 +5,16 @@
 #include "emath.h"
 #include "platform.h"
 #include "asset_types.h"
-#include "rendererAPI.h"
 #include "darray.h"
 
 #include "utils.h"
 
+#include <stdint.h>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2
+#define MAX_UI_CHARACTERS 65536
 
 typedef struct MeshRendererState {
     VkBuffer vertexBuffer;
@@ -56,6 +58,8 @@ typedef struct PipelineState {
     VkDescriptorSetLayout* descriptorSetLayouts;
     VkDescriptorSet* descriptorSets;
 
+    void* internalState;
+
     VkBuffer* frameUBOBuffer;
     VkDeviceMemory* frameUBOMemory;
     void** frameUBOMapped;
@@ -64,6 +68,35 @@ typedef struct PipelineState {
     VkDeviceMemory* lightUBOMemory;
     void** lightUBOMapped;
 } PipelineState;
+
+typedef struct UICharacterInstance {
+    vec3 position;
+    uint32_t color;
+    vec2 size;
+    uint32_t character;
+    uint32_t reserve[1];
+} UICharacterInstance;
+typedef struct UISSBO_0 {
+    UICharacterInstance UICharacterInstances[MAX_UI_CHARACTERS];
+} UISSBO_0;
+typedef struct UIPipelineInternalState {
+    VkDescriptorSet* descriptorSets;
+    VkBuffer* SSBOBuffer;
+    VkDeviceMemory* SSBOMemory;
+    void** SSBOMapped;
+} UIPipelineInternalState;
+typedef struct UIText {
+    vec3 position;
+    float scale;
+    uint32_t color;
+    char* text;
+    uint32_t textLength;
+    UICharacterInstance* characters;
+} UIText;
+typedef struct UIState {
+    uint32_t prevWidth, prevHeight;
+    HashMap* texts;
+} UIState;
 
 typedef struct RendererState {
     VkInstance instance;
@@ -113,6 +146,7 @@ typedef struct RendererState {
 
     Scene* scene;
     HashMap* materialRendererStates;
+    UIState uiState;
 
 } RendererState;
 
@@ -147,6 +181,7 @@ typedef struct PipelineOptions {
     VkRect2D scissor;
     VkCullModeFlags cullMode;
     VkFrontFace frontFace;
+    VkPrimitiveTopology topology;
     VkPolygonMode polygonMode;
     VkBool32 depthTestEnable, blendEnable;
     VkSampleCountFlagBits rasterizationSamples;
@@ -156,3 +191,4 @@ typedef struct PipelineOptions {
 void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline* pipeline, VkPipelineLayout* pipelineLayout);
 void createCommonPipelines(RendererState internalStateRenderer, PipelineState** pipelineStates);
 void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipeline);
+void createUIPipelineObjects(RendererState internalStateRenderer, PipelineState* pipelineState);

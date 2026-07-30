@@ -101,6 +101,10 @@ int main() {
     PassiveDelay escKey = passiveDelaySet(0.3);
     PassiveDelay gKey = passiveDelaySet(0.2);
 
+    UIText* scoreText = rendererUICreateUIText((vec3){{-1, -1}}, (vec4){{0, 1, 0, 1}}, 1.2);
+    rendererUIPrint(scoreText, "%d", 0);
+    UIText* gameOverText = rendererUICreateUIText((vec3){{-0.4, 0}}, (vec4){{1, 0, 0, 1}}, 1.4);
+
     bool gameOver = false, paused = true;
     int score = 0;
 
@@ -123,6 +127,7 @@ int main() {
                 locked = false;
             }
         }
+
         if (platformInputIsKeyDown(KEY_x) && passiveDelayIsDoneIfSoReset(&xKey)) {
             rendererWireframeToggle();
         }
@@ -148,6 +153,7 @@ int main() {
                     piller->scored = true;
                     playSound("./assets/sounds/sfx_point.wav");
                     DEBUG("score = %d", score);
+                    rendererUIPrint(scoreText, "%d", score);
                 }
                 if (piller->upper->transform.translation.x <= -5) {
                     piller->upper->transform.translation.x = 5;
@@ -166,7 +172,10 @@ int main() {
                 playSound("./assets/sounds/sfx_hit.wav");
                 WARN("GAME OVER\n\tPress ESC to close..");
             }
-            if (gameOver) continue;
+            if (gameOver) {
+                rendererUIPrint(gameOverText, "Game Over");
+                continue;
+            }
 
             physicsEngineRun(scene->physicsEngine, physicsDt);
             sceneEntityApplyTransform(scene);
@@ -179,6 +188,7 @@ int main() {
             double sleepTime = physicsDt - frameTime;
             platformSleep(sleepTime);
         }
+        rendererUIFixScale();
     }
     engineShutdown();
 }

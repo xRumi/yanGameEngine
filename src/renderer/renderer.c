@@ -1,5 +1,9 @@
 #include "renderer.h"
 #include "asset_manager.h"
+#include "asset_types.h"
+#include "platform.h"
+#include <stdint.h>
+#include <vulkan/vulkan_core.h>
 
 const char* instanceLayers[] = {"VK_LAYER_KHRONOS_validation"};
 const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE1_EXTENSION_NAME};
@@ -444,11 +448,13 @@ void createSyncObjects() {
 }
 
 void createDescriptorPool() {
-    VkDescriptorPoolSize poolSizes[2];
+    VkDescriptorPoolSize poolSizes[3];
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = (4) * MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].descriptorCount = (4) * MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
     descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -640,6 +646,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                         break;
                     }
                     case PIPELINE_TYPE_WIREFRAME:
+                    case PIPELINE_TYPE_UI:
                     case PIPELINE_TYPE_MAX: break;
                 }
                 previousMaterialRendererState = materialRendererState;
@@ -662,6 +669,35 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
             vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh->indices), 1, 0, 0, 0);
         }
     }
+
+    {
+        // handle UI
+        PipelineState uiPipelineState = internalStateRenderer.pipelineStates[PIPELINE_TYPE_UI];
+        UIPipelineInternalState* uiPipelineInternalState = uiPipelineState.internalState;
+
+        UISSBO_0 uISSBO_0 = {};
+        int characterInstanceIndex = 0;
+
+        UIText* uiText;
+        hashmap_foreach(internalStateRenderer.uiState.texts, uiText) {
+            UICharacterInstance* characterInstance;
+            darray_foreach(uiText->characters, characterInstance) {
+                if (characterInstanceIndex >= MAX_UI_CHARACTERS) {
+                    WARN("UI character hard limit reached");
+                    break;
+                }
+                uISSBO_0.UICharacterInstances[characterInstanceIndex++] = *characterInstance;
+            }
+        }
+        
+        memcpy(uiPipelineInternalState->SSBOMapped[0], &uISSBO_0, sizeof(uISSBO_0));
+        
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipelineState.pipeline);
+        // vkCmdPushConstants(commandBuffer, uiPipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glyph), &glyph);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipelineState.pipelineLayout, 1, 1, &uiPipelineInternalState->descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
+        vkCmdDraw(commandBuffer, 4, characterInstanceIndex + 1, 0, 0);
+    }
+
     vkCmdEndRenderPass(commandBuffer);
     
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -767,11 +803,13 @@ void mainLoop() {
 }
 
 void vulkanRendererInitialize() {
-    platformGetPlatformState()->width = platformGetPlatformState()->width;
     platformGetPlatformState()->height = platformGetPlatformState()->height;
     internalStateRenderer.startTime = platformGetTime();
     internalStateRenderer.targetFrameTime = 1 / 60.0;
     internalStateRenderer.materialRendererStates = hashmap_create(100);
+    internalStateRenderer.uiState.texts = hashmap_create(100);
+    internalStateRenderer.uiState.prevWidth = platformGetPlatformState()->width;
+    internalStateRenderer.uiState.prevHeight = platformGetPlatformState()->height;
 
     createInstance();
     createSurface();

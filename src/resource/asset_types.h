@@ -26,6 +26,7 @@ typedef struct Vertex {
 typedef enum PipelineType {
     PIPELINE_TYPE_DEFAULT,
     PIPELINE_TYPE_WIREFRAME,
+    PIPELINE_TYPE_UI,
     PIPELINE_TYPE_MAX
 } PipelineType;
 

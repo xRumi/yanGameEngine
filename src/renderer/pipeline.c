@@ -1,4 +1,9 @@
+#include "asset_types.h"
+#include "darray.h"
+#include "logger.h"
+#include "memory.h"
 #include "renderer.h"
+#include <vulkan/vulkan_core.h>
 
 VkShaderModule createShaderModule(VkDevice device, const char* shaderCode) {
     VkShaderModule shaderModule = {};
@@ -42,14 +47,16 @@ void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline*
 
     VkPipelineVertexInputStateCreateInfo vertexCreateInfo = {};
     vertexCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexCreateInfo.vertexBindingDescriptionCount = darray_get_length(options.vertexBindingDescriptions);
-    vertexCreateInfo.pVertexBindingDescriptions = options.vertexBindingDescriptions;
-    vertexCreateInfo.vertexAttributeDescriptionCount = darray_get_length(options.vertexAttributeDescriptions);
-    vertexCreateInfo.pVertexAttributeDescriptions = options.vertexAttributeDescriptions;
+    if (options.vertexBindingDescriptions) {
+        vertexCreateInfo.vertexBindingDescriptionCount = darray_get_length(options.vertexBindingDescriptions);
+        vertexCreateInfo.pVertexBindingDescriptions = options.vertexBindingDescriptions;
+        vertexCreateInfo.vertexAttributeDescriptionCount = darray_get_length(options.vertexAttributeDescriptions);
+        vertexCreateInfo.pVertexAttributeDescriptions = options.vertexAttributeDescriptions;
+    }
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {};
     inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyCreateInfo.topology = options.topology;
     inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE;
 
     VkPipelineViewportStateCreateInfo viewportCreateInfo = {};
@@ -246,6 +253,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_BACK_BIT,
                     .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
                     .polygonMode = VK_POLYGON_MODE_FILL,
                     .depthTestEnable = VK_TRUE,
                     .blendEnable = VK_FALSE,
@@ -254,7 +262,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 };
                 createGraphicsPipline(internalStateRenderer.device, options, &pipelineState->pipeline, &pipelineState->pipelineLayout);
                 createPipelineFrameUBO(internalStateRenderer, pipelineState);
-                TRACE("Default graphics pipeline created");
+                TRACE("\"DEFAULT\" graphics pipeline created");
 
                 darray_destroy(vertexInputBindings);
                 darray_destroy(vertexInputAttributeDescriptions);
@@ -331,6 +339,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_NONE,
                     .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
                     .polygonMode = VK_POLYGON_MODE_LINE,
                     .depthTestEnable = VK_TRUE,
                     .blendEnable = VK_FALSE,
@@ -339,27 +348,144 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 };
                 createGraphicsPipline(internalStateRenderer.device, options, &pipelineState->pipeline, &pipelineState->pipelineLayout);
                 createPipelineFrameUBO(internalStateRenderer, pipelineState);
-                TRACE("Wireframe graphics pipeline created");
+                TRACE("\"WIREFRAME\" graphics pipeline created");
 
                 darray_destroy(vertexInputBindings);
                 darray_destroy(vertexInputAttributeDescriptions);
                 darray_destroy(set_0_layoutBindings);
                 break;
             }
+
+            case PIPELINE_TYPE_UI: {
+                // create ui pipeline
+                PipelineState* pipelineState = &(*pipelineStates)[i];
+
+                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_resized(VkDescriptorSetLayoutBinding, 2);
+                set_0_layoutBindings[0].binding = 0;
+                set_0_layoutBindings[0].descriptorCount = 1;
+                set_0_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+                set_0_layoutBindings[1].binding = 1;
+                set_0_layoutBindings[1].descriptorCount = 1;
+                set_0_layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+                VkDescriptorSetLayoutCreateInfo set_0_layoutCreateInfo = {};
+                set_0_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                set_0_layoutCreateInfo.bindingCount = darray_get_length(set_0_layoutBindings);
+                set_0_layoutCreateInfo.pBindings = set_0_layoutBindings;
+                VkDescriptorSetLayout set_0_layout;
+                if (vkCreateDescriptorSetLayout(internalStateRenderer.device, &set_0_layoutCreateInfo, NULL, &set_0_layout) != VK_SUCCESS) {
+                    FATAL("Failed to create descriptor set layout");
+                }
+
+                VkDescriptorSetLayoutBinding* set_1_layoutBindings = darray_create_resized(VkDescriptorSetLayoutBinding, 1);
+                set_1_layoutBindings[0].binding = 0;
+                set_1_layoutBindings[0].descriptorCount = 1;
+                set_1_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                set_1_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+                VkDescriptorSetLayoutCreateInfo set_1_layoutCreateInfo = {};
+                set_1_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                set_1_layoutCreateInfo.bindingCount = darray_get_length(set_1_layoutBindings);
+                set_1_layoutCreateInfo.pBindings = set_1_layoutBindings;
+                VkDescriptorSetLayout set_1_layout;
+                if (vkCreateDescriptorSetLayout(internalStateRenderer.device, &set_1_layoutCreateInfo, NULL, &set_1_layout) != VK_SUCCESS) {
+                    FATAL("Failed to create descriptor set layout");
+                }
+
+                pipelineState->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
+                darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
+                darray_push(pipelineState->descriptorSetLayouts, set_1_layout);
+
+                PipelineOptions options = {
+                    .vertShaderPath = "assets/shaders/spv/ui.vert.spv",
+                    .fragShaderPath = "assets/shaders/spv/ui.frag.spv",
+                    .vertexBindingDescriptions = NULL,
+                    .vertexAttributeDescriptions = NULL,
+                    .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
+                    .viewport = viewport,
+                    .scissor = scissor,
+                    .cullMode = VK_CULL_MODE_NONE,
+                    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+                    .polygonMode = VK_POLYGON_MODE_FILL,
+                    .depthTestEnable = VK_TRUE,
+                    .blendEnable = VK_FALSE,
+                    .rasterizationSamples = internalStateRenderer.msaaSamples,
+                    .renderPass = internalStateRenderer.renderPass,
+                };
+                createGraphicsPipline(internalStateRenderer.device, options, &pipelineState->pipeline, &pipelineState->pipelineLayout);
+                createPipelineFrameUBO(internalStateRenderer, pipelineState);
+                createUIPipelineObjects(internalStateRenderer, pipelineState);
+                TRACE("\"UI\" graphics pipeline created");
+
+                darray_destroy(set_0_layoutBindings);
+                darray_destroy(set_1_layoutBindings);
+                break;
+            }
+            default: WARN("Graphics pipeline no. %d not configured", i);
         }
+}
+
+void createUIPipelineObjects(RendererState internalStateRenderer, PipelineState* pipelineState) {
+    UIPipelineInternalState* uIPipelineInternalState = memalloc(sizeof(UIPipelineInternalState), MEMORY_TAG_RENDERER);
+    pipelineState->internalState = uIPipelineInternalState;
+
+    VkDeviceSize SSBO_0_Size = sizeof(UISSBO_0);
+
+    uIPipelineInternalState->SSBOBuffer = darray_create_resized_memoryTag(VkBuffer, 1, MEMORY_TAG_RENDERER);
+    uIPipelineInternalState->SSBOMemory = darray_create_resized_memoryTag(VkDeviceMemory, 1, MEMORY_TAG_RENDERER);
+    uIPipelineInternalState->SSBOMapped = darray_create_resized_memoryTag(void*, 1, MEMORY_TAG_RENDERER);
+
+    createBuffer(internalStateRenderer, SSBO_0_Size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uIPipelineInternalState->SSBOBuffer[0], &uIPipelineInternalState->SSBOMemory[0]);
+    vkMapMemory(internalStateRenderer.device, uIPipelineInternalState->SSBOMemory[0], 0, SSBO_0_Size, 0, &uIPipelineInternalState->SSBOMapped[0]);
+
+    VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT] = {};
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) layouts[i] = pipelineState->descriptorSetLayouts[1];
+    uIPipelineInternalState->descriptorSets = darray_create_resized(VkDescriptorSet, MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = internalStateRenderer.descriptorPool;
+    allocInfo.pSetLayouts = layouts;
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+    if (vkAllocateDescriptorSets(internalStateRenderer.device, &allocInfo, uIPipelineInternalState->descriptorSets) != VK_SUCCESS) {
+        FATAL("Failed to allocate descriptor sets");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkWriteDescriptorSet writeDescriptors[1] = {};
+
+        VkDescriptorBufferInfo SSBO_0_Info = {};
+        SSBO_0_Info.buffer = uIPipelineInternalState->SSBOBuffer[0];
+        SSBO_0_Info.offset = 0;
+        SSBO_0_Info.range = SSBO_0_Size;
+
+        writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writeDescriptors[0].descriptorCount = 1;
+        writeDescriptors[0].dstSet = uIPipelineInternalState->descriptorSets[i];
+        writeDescriptors[0].pBufferInfo = &SSBO_0_Info;
+        writeDescriptors[0].dstBinding = 0;
+        writeDescriptors[0].dstArrayElement = 0;
+
+        vkUpdateDescriptorSets(internalStateRenderer.device, CARRAY_SIZE(writeDescriptors), writeDescriptors, 0, NULL);
+    }
 }
 
 void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipelineState) {
     VkDeviceSize frameUBOBufferSize = sizeof(FrameUBO);
     VkDeviceSize lightUBOBufferSize = sizeof(LightUBO);
 
-    pipelineState->frameUBOBuffer = darray_create_resized(VkBuffer, MAX_FRAMES_IN_FLIGHT);
-    pipelineState->frameUBOMemory = darray_create_resized(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
-    pipelineState->frameUBOMapped = darray_create_resized(void*, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->frameUBOBuffer = darray_create_resized_memoryTag(VkBuffer, MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+    pipelineState->frameUBOMemory = darray_create_resized_memoryTag(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+    pipelineState->frameUBOMapped = darray_create_resized_memoryTag(void*, MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
 
-    pipelineState->lightUBOBuffer = darray_create_resized(VkBuffer, MAX_FRAMES_IN_FLIGHT);
-    pipelineState->lightUBOMemory = darray_create_resized(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT);
-    pipelineState->lightUBOMapped = darray_create_resized(void*, MAX_FRAMES_IN_FLIGHT);
+    pipelineState->lightUBOBuffer = darray_create_resized_memoryTag(VkBuffer, MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+    pipelineState->lightUBOMemory = darray_create_resized_memoryTag(VkDeviceMemory, MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
+    pipelineState->lightUBOMapped = darray_create_resized_memoryTag(void*, MAX_FRAMES_IN_FLIGHT, MEMORY_TAG_RENDERER);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         createBuffer(internalStateRenderer, frameUBOBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pipelineState->frameUBOBuffer[i], &pipelineState->frameUBOMemory[i]);
@@ -387,7 +513,7 @@ void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* 
         VkDescriptorBufferInfo frameUBOBufferInfo = {};
         frameUBOBufferInfo.buffer = pipelineState->frameUBOBuffer[i];
         frameUBOBufferInfo.offset = 0;
-        frameUBOBufferInfo.range = sizeof(FrameUBO);
+        frameUBOBufferInfo.range = frameUBOBufferSize;
 
         writeDescriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptors[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -400,7 +526,7 @@ void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* 
         VkDescriptorBufferInfo lightUBOBufferInfo = {};
         lightUBOBufferInfo.buffer = pipelineState->lightUBOBuffer[i];
         lightUBOBufferInfo.offset = 0;
-        lightUBOBufferInfo.range = sizeof(LightUBO);
+        lightUBOBufferInfo.range = lightUBOBufferSize;
 
         writeDescriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptors[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
