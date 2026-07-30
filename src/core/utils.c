@@ -39,6 +39,18 @@ char* readFile(const char* filename) {
     return data;
 };
 
+uint32_t vec4ColorToUInt32_t(vec4 color) {
+    uint32_t ret = 0;
+    for (int i = 0; i < 4; i++) {
+        ret <<= 8;
+        uint32_t colorValue = 0;
+        if (color.ele[i] >= 0 && color.ele[i] <= 1)
+            colorValue = color.ele[i] * 255;
+        ret |= colorValue;
+    }
+    return ret;
+}
+
 float clamp(float val, float min, float max) {
     if (val > max) return max;
     if (val < min) return min;

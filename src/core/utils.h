@@ -11,6 +11,7 @@ void playSound(const char* path);
 char* readFile(const char* filename);
 float clamp(float val, float min, float max);
 void stringBuilderConcat(char** darray, const char* message, ...);
+uint32_t vec4ColorToUInt32_t(vec4 color);
 
 typedef struct PassiveDelay {
     double startTime;
