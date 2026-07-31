@@ -671,7 +671,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     }
 
     {
-        // handle UI
+        // handle UI rendering
         PipelineState uiPipelineState = internalStateRenderer.pipelineStates[PIPELINE_TYPE_UI];
         UIPipelineInternalState* uiPipelineInternalState = uiPipelineState.internalState;
 
@@ -686,15 +686,19 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                     WARN("UI character hard limit reached");
                     break;
                 }
-                uISSBO_0.UICharacterInstances[characterInstanceIndex++] = *characterInstance;
+                uISSBO_0.uiCharacterInstances[characterInstanceIndex++] = *characterInstance;
             }
         }
+
+        UIPushConstant uiPushConstant = {};
         
         memcpy(uiPipelineInternalState->SSBOMapped[0], &uISSBO_0, sizeof(uISSBO_0));
-        
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipelineState.pipeline);
-        // vkCmdPushConstants(commandBuffer, uiPipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glyph), &glyph);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipelineState.pipelineLayout, 1, 1, &uiPipelineInternalState->descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
+        
+        uiPushConstant.uiComponentType = UI_TEXT;
+        vkCmdPushConstants(commandBuffer, uiPipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(UIPushConstant), &uiPushConstant);
         vkCmdDraw(commandBuffer, 4, characterInstanceIndex + 1, 0, 0);
     }
 

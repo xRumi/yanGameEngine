@@ -92,21 +92,27 @@ void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline*
     colorBlendCreateInfo.attachmentCount = 1;
     colorBlendCreateInfo.pAttachments = &colorBlendAttachment;
 
-    VkPushConstantRange pushConstantRanges[1] = {};
-    pushConstantRanges[0].size = sizeof(PushConstant0);
-    pushConstantRanges[0].offset = 0;
-    pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uint32_t pushConstantsLength = darray_get_length(options.pushConstants);
+    VkPushConstantRange* pushConstantRanges = darray_create_resized(VkPushConstantRange, pushConstantsLength);
+
+    for (int i = 0; i < pushConstantsLength; i++) {
+        pushConstantRanges[i].size = options.pushConstants[i].size;
+        pushConstantRanges[i].offset = 0;
+        pushConstantRanges[i].stageFlags = options.pushConstants[i].flags;
+    }
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = darray_get_length(options.descriptorSetLayouts);
     pipelineLayoutCreateInfo.pSetLayouts = options.descriptorSetLayouts;
-    pipelineLayoutCreateInfo.pushConstantRangeCount = CARRAY_SIZE(pushConstantRanges);
+    pipelineLayoutCreateInfo.pushConstantRangeCount = pushConstantsLength;
     pipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, pipelineLayout) != VK_SUCCESS) {
         FATAL("Failed to create pipeline layout!");
     }
+
+    darray_destroy(pushConstantRanges);
     
     VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = {};
     depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -243,12 +249,17 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
                 darray_push(pipelineState->descriptorSetLayouts, set_1_layout);
 
+                PipelineOptionPushConstant* pushConstants = darray_create_resized(PipelineOptionPushConstant, 1);
+                pushConstants[0].size = sizeof(PushConstant0);
+                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT;
+
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/default.vert.spv",
                     .fragShaderPath = "assets/shaders/spv/default.frag.spv",
                     .vertexBindingDescriptions = vertexInputBindings,
                     .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
                     .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
+                    .pushConstants = pushConstants,
                     .viewport = viewport,
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_BACK_BIT,
@@ -268,6 +279,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 darray_destroy(vertexInputAttributeDescriptions);
                 darray_destroy(set_0_layoutBindings);
                 darray_destroy(set_1_layoutBindings);
+                darray_destroy(pushConstants);
                 break;
             }
             case PIPELINE_TYPE_WIREFRAME: {
@@ -329,12 +341,17 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 pipelineState->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
                 darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
 
+                PipelineOptionPushConstant* pushConstants = darray_create_resized(PipelineOptionPushConstant, 1);
+                pushConstants[0].size = sizeof(PushConstant0);
+                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT;
+
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/wireframe.vert.spv",
                     .fragShaderPath = "assets/shaders/spv/wireframe.frag.spv",
                     .vertexBindingDescriptions = vertexInputBindings,
                     .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
                     .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
+                    .pushConstants = pushConstants,
                     .viewport = viewport,
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_NONE,
@@ -353,6 +370,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 darray_destroy(vertexInputBindings);
                 darray_destroy(vertexInputAttributeDescriptions);
                 darray_destroy(set_0_layoutBindings);
+                darray_destroy(pushConstants);
                 break;
             }
 
@@ -399,12 +417,17 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
                 darray_push(pipelineState->descriptorSetLayouts, set_1_layout);
 
+                PipelineOptionPushConstant* pushConstants = darray_create_resized(PipelineOptionPushConstant, 1);
+                pushConstants[0].size = sizeof(UIPushConstant);
+                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/ui.vert.spv",
                     .fragShaderPath = "assets/shaders/spv/ui.frag.spv",
                     .vertexBindingDescriptions = NULL,
                     .vertexAttributeDescriptions = NULL,
                     .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
+                    .pushConstants = pushConstants,
                     .viewport = viewport,
                     .scissor = scissor,
                     .cullMode = VK_CULL_MODE_NONE,
@@ -423,6 +446,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
 
                 darray_destroy(set_0_layoutBindings);
                 darray_destroy(set_1_layoutBindings);
+                darray_destroy(pushConstants);
                 break;
             }
             default: WARN("Graphics pipeline no. %d not configured", i);

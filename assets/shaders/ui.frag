@@ -6,6 +6,10 @@ layout (location = 2) flat in uint fragChar;
 
 layout (location = 0) out vec4 outColor;
 
+layout (push_constant) uniform constant {
+    int uiComponentType;
+} PushConstant;
+
 // 256 glyphs, 8x16
 const uint FONT_HEIGHT = 16u;
 const uint FONT_WIDTH = 8u;
@@ -14,22 +18,26 @@ const int NUM_GLYPHS = 256;
 uvec4 getGlyphs(int index);
 
 void main() {
-    // Map uv to 8x16 pixel space
-    int col = int(fragUV.x * 8.0);
-    int row = int(fragUV.y * 16.0);
+    if (PushConstant.uiComponentType == 0) {
+        // UIComponentType = UI_TEXT
+        
+        // Map uv to 8x16 pixel space
+        int col = int(fragUV.x * 8.0);
+        int row = int(fragUV.y * 16.0);
 
-    int charIndex = int(fragChar);
-    
-    uvec4 glyph = getGlyphs(charIndex);
+        int charIndex = int(fragChar);
+        
+        uvec4 glyph = getGlyphs(charIndex);
 
-    uint activeWord = glyph[row / 4];
-    uint activeByte = (activeWord >> ((row % 4) * 8)) & 0xFFu;
-    uint activeBit = (activeByte >> (7 - col)) & 1;
+        uint activeWord = glyph[row / 4];
+        uint activeByte = (activeWord >> ((row % 4) * 8)) & 0xFFu;
+        uint activeBit = (activeByte >> (7 - col)) & 1;
 
-    if (activeBit == 0) discard;
-    
-    if (activeBit == 0) outColor = vec4(1, 0, 0, 1);
-    else outColor = fragColor;
+        if (activeBit == 0) discard;
+        outColor = fragColor;
+    } else {
+        // do nothing
+    }
 }
 
 uvec4 glyphs[NUM_GLYPHS] = uvec4[NUM_GLYPHS](

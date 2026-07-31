@@ -15,4 +15,5 @@ UIText* rendererUICreateUIText(vec3 position, vec4 color, float scale);
 void rendererUIDestroyUIText(UIText* uIText);
 void rendererUIPrint(UIText* uIText, const char* message, ...);
 void rendererUIRepositionText(UIText* uiText);
+
 void rendererUIFixScale();

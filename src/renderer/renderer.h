@@ -77,8 +77,14 @@ typedef struct UICharacterInstance {
     uint32_t reserve[1];
 } UICharacterInstance;
 typedef struct UISSBO_0 {
-    UICharacterInstance UICharacterInstances[MAX_UI_CHARACTERS];
+    UICharacterInstance uiCharacterInstances[MAX_UI_CHARACTERS];
 } UISSBO_0;
+typedef enum UIComponentType {
+    UI_TEXT,
+} UIComponentType;
+typedef struct UIPushConstant {
+    UIComponentType uiComponentType;
+} UIPushConstant;
 typedef struct UIPipelineInternalState {
     VkDescriptorSet* descriptorSets;
     VkBuffer* SSBOBuffer;
@@ -171,12 +177,18 @@ void createTextureImage(RendererState internalStateRenderer, void* pixels, uint3
 void generateMipmaps(RendererState internalStateRenderer, VkImage image, uint32_t width, uint32_t height, VkFormat format, uint32_t mipLevels);
 void createTextureSampler(RendererState internalStateRenderer, VkSampler* textureSampler);
 
+
+typedef struct PipelineOptionPushConstant {
+    VkDeviceSize size;
+    VkShaderStageFlags flags;
+} PipelineOptionPushConstant;
 typedef struct PipelineOptions {
     const char* vertShaderPath;
     const char* fragShaderPath;
     VkVertexInputBindingDescription* vertexBindingDescriptions;
     VkVertexInputAttributeDescription* vertexAttributeDescriptions;
     VkDescriptorSetLayout* descriptorSetLayouts;
+    PipelineOptionPushConstant* pushConstants;
     VkViewport viewport;
     VkRect2D scissor;
     VkCullModeFlags cullMode;

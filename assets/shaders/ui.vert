@@ -23,33 +23,37 @@ layout (std430, set = 1, binding = 0) readonly buffer SSBO_0 {
 } UISSBO_0;
 
 layout (push_constant) uniform constant {
-    vec2 position, size;
-    uint color;
-    uint character;
-} PushConstant1;
+    int uiComponentType;
+} PushConstant;
 
 void main() {
+    if (PushConstant.uiComponentType == 0) {
+        // UIComponentType = UI_TEXT
 
-    UICharacterInstance uICharacterInstance = UISSBO_0.UICharacterInstances[gl_InstanceIndex];
+        UICharacterInstance uICharacterInstance = UISSBO_0.UICharacterInstances[gl_InstanceIndex];
 
-    vec2 corners[4] = vec2[](
-        vec2(uICharacterInstance.position.x, uICharacterInstance.position.y),
-        vec2(uICharacterInstance.position.x, uICharacterInstance.position.y + uICharacterInstance.size.y),
-        vec2(uICharacterInstance.position.x + uICharacterInstance.size.x, uICharacterInstance.position.y),
-        vec2(uICharacterInstance.position.x + uICharacterInstance.size.x, uICharacterInstance.position.y + uICharacterInstance.size.y)
-    );
-    vec2 uvs[4] = vec2[](
-        vec2(0, 0), vec2(0, 1),
-        vec2(1, 0), vec2(1, 1)
-    );
+        vec2 corners[4] = vec2[](
+            vec2(uICharacterInstance.position.x, uICharacterInstance.position.y),
+            vec2(uICharacterInstance.position.x, uICharacterInstance.position.y + uICharacterInstance.size.y),
+            vec2(uICharacterInstance.position.x + uICharacterInstance.size.x, uICharacterInstance.position.y),
+            vec2(uICharacterInstance.position.x + uICharacterInstance.size.x, uICharacterInstance.position.y + uICharacterInstance.size.y)
+        );
+        vec2 uvs[4] = vec2[](
+            vec2(0, 0), vec2(0, 1),
+            vec2(1, 0), vec2(1, 1)
+        );
 
-    gl_Position = vec4(corners[gl_VertexIndex], 0, 1);
-    fragColor = vec4(
-        ((uICharacterInstance.color >> 24) & 0xFF) / 256.0,
-        ((uICharacterInstance.color >> 16) & 0xFF) / 256.0,
-        ((uICharacterInstance.color >> 8) & 0xFF) / 256.0,
-        ((uICharacterInstance.color >> 0) & 0xFF) / 256.0
-    );
-    fragUV = uvs[gl_VertexIndex];
-    fragChar = uICharacterInstance.character;
+        gl_Position = vec4(corners[gl_VertexIndex], 0, 1);
+        fragColor = vec4(
+            ((uICharacterInstance.color >> 24) & 0xFF) / 256.0,
+            ((uICharacterInstance.color >> 16) & 0xFF) / 256.0,
+            ((uICharacterInstance.color >> 8) & 0xFF) / 256.0,
+            ((uICharacterInstance.color >> 0) & 0xFF) / 256.0
+        );
+        fragUV = uvs[gl_VertexIndex];
+        fragChar = uICharacterInstance.character;
+    } else {
+        // do nothing
+        gl_Position = vec4(0);
+    }
 }
