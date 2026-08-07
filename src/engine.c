@@ -18,6 +18,7 @@ void engineInitialize(const char *windowTitle, uint32_t x, uint32_t y, uint32_t 
     
     engineState = memalloc(sizeof(EngineState), MEMORY_TAG_ENGINE);
     platformInitialize(windowTitle, x, y, width, height);
+    soundEngineInitialize();
     rendererInitialize();
 }
 

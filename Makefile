@@ -33,19 +33,19 @@ ifeq ($(PLATFORM), Linux)
 		CPPFLAGS += -DUSE_WAYLAND
 		LDFLAGS += -lwayland-client
 	endif
+	CPPFLAGS += -DPLATFORM_LINUX
 else ifeq ($(PLATFORM), Windows)
 	TARGET = main.exe
 	CC = gcc
 	CFLAGS += -fpic -Wall
-	LDFLAGS += -lvulkan-1 -lglfw3 -lgdi32 -lm -pthread
-	CPPFLAGS += -DUSE_GLFW
+	LDFLAGS += -lvulkan-1 -lglfw3 -lgdi32 -lm -pthread -lwinmm
+	CPPFLAGS += -DUSE_GLFW -DPLATFORM_WINDOWS
 endif
 
 BUILD_TYPE ?= debug
 ifeq ($(BUILD_TYPE), debug)
-	CFLAGS += -g
+	CFLAGS += -D_DEBUG -g
 else
-	CPPFLAGS += -DNDEBUG
 endif
 
 $(BUILD_DIR)/$(TARGET): $(OBJS) shaders

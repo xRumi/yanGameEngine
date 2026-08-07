@@ -40,7 +40,7 @@ const char* get_memory_usage_str() {
         if (GiB) offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %d GiB,", GiB);
         if (MiB) offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %d MiB,", MiB);
         if (KiB) offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %d KiB,", KiB);
-        offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %ld Byte\n", size);
+        offset += snprintf(memory_usage_str + offset, memory_usage_str_length - offset, " %lld Byte\n", size);
     }
     memory_usage_str[offset] = 0;
     return memory_usage_str;

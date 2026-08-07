@@ -9,14 +9,16 @@ struct {
     ma_engine soundEngine;
     ma_result soundEngineResult;
 } internalStateUtil;
-
-void playSound(const char* path) {
+void soundEngineInitialize() {
     if (!internalStateUtil.soundEngineInit) {
         internalStateUtil.soundEngineInit = true;
         if ((internalStateUtil.soundEngineResult = ma_engine_init(NULL, &internalStateUtil.soundEngine)) != MA_SUCCESS) {
             WARN("Failed to initialize sound engine");
         }
     }
+}
+void playSound(const char* path) {
+    if (!internalStateUtil.soundEngineInit) FATAL("Initialize sound engine before playing any sound");
     if (internalStateUtil.soundEngineResult == MA_SUCCESS)
         ma_engine_play_sound(&internalStateUtil.soundEngine, path, NULL);
 }
@@ -24,7 +26,7 @@ void playSound(const char* path) {
 char* readFile(const char* filename) {
     FILE* file = fopen(filename, "rb");
     if (file == NULL) {
-        ERROR("Failed to open file %s", filename);
+        FATAL("Failed to open file %s", filename);
         return NULL;
     }
     fseek(file, 0, SEEK_END);

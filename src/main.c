@@ -71,7 +71,18 @@ void handleCamera(Camera* camera, double deltaTime) {
 int main() {
     uint32_t width = 600, height = 600;
     engineInitialize("yanGameEngine - Physics Engine Test", 0, 0, width, height);
-    rendererSetFPS(144);
+    platformWindowSetResizable(false);
+
+    int cpuFps = 60 * 3;
+    int gpuFps = 144;
+
+    if (getenv("cpu_fps")) cpuFps = strtol(getenv("cpu_fps"), NULL, 10);
+    if (getenv("gpu_fps")) gpuFps = strtol(getenv("gpu_fps"), NULL, 10);
+
+    rendererSetFPS(gpuFps);
+
+    double mainDt = 1.0 / cpuFps;
+    double physicsDt = 1 / 60.0;
 
     Model* background = assetGenerateRectangle((vec3){{-3, 5}}, (vec3){{-3, -5}}, (vec3){{3, -5}}, (vec3){{3, 5}}, "./assets/world/models/FlappyBird/bg.png");
     Model* pillar = assetGenerateRectangle((vec3){{-0.2, 2}}, (vec3){{-0.2, -2}}, (vec3){{0.2, -2}}, (vec3){{0.2, 2}}, "./assets/world/models/FlappyBird/pillar.jpg");
@@ -105,15 +116,17 @@ int main() {
     rendererUIPrint(scoreText, "%d", 0);
     UIText* gameOverText = rendererUICreateUIText((vec3){{-0.4, 0}}, (vec4){{1, 0, 0, 1}}, 1.4);
 
+    UIText* frameRateText = rendererUICreateUIText((vec3){{1, -1}}, (vec4){{1}}, 1);
+    PassiveDelay frameRateTextUpdateDelay = passiveDelaySet(0.5);
+
+    PassiveDelay physicsEngineDelay = passiveDelaySet(physicsDt);
+
     bool gameOver = false, paused = true;
     int score = 0;
 
     WARN("Press g to start playing..");
 
     TimeManager timeManager = timeManagerStart();
-    double physicsElapsedTime = 0;
-    double physicsDt = 1 / 120.0;
-
     while (!platformGetPlatformState()->isWindowClosed) {
         timeManagerUpdate(&timeManager);
         handleCamera(&scene->camera, timeManager.deltaTime);
@@ -141,7 +154,7 @@ int main() {
             }
         }
 
-        if (!gameOver && !paused && timeManager.elapsedTime - physicsElapsedTime > physicsDt) {
+        if (!gameOver && !paused) {
             if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
                 playSound("./assets/sounds/sfx_wing.wav");
                 birdEntity->physicsBody->velocity.y = 3;
@@ -152,7 +165,7 @@ int main() {
                     score++;
                     piller->scored = true;
                     playSound("./assets/sounds/sfx_point.wav");
-                    DEBUG("score = %d", score);
+                    // DEBUG("score = %d", score);
                     rendererUIPrint(scoreText, "%d", score);
                 }
                 if (piller->upper->transform.translation.x <= -5) {
@@ -177,18 +190,22 @@ int main() {
                 continue;
             }
 
-            physicsEngineRun(scene->physicsEngine, physicsDt);
+            if (passiveDelayIsDoneIfSoReset(&physicsEngineDelay)) physicsEngineRun(scene->physicsEngine, physicsDt);
             sceneEntityApplyTransform(scene);
-            physicsElapsedTime = timeManager.elapsedTime;
-        }
-        platformPullEvent();
-
-        double frameTime = platformGetTime() - timeManager.lastTime;
-        if (frameTime < physicsDt) {
-            double sleepTime = physicsDt - frameTime;
-            platformSleep(sleepTime);
         }
         rendererUIFixScale();
+        platformPullEvent();
+
+        if (passiveDelayIsDoneIfSoReset(&frameRateTextUpdateDelay)) {
+            rendererUIPrint(frameRateText, "%.2f", 1 / timeManager.deltaTime);
+            frameRateText->position.x = 1 - frameRateText->textLength * frameRateText->characters[0].size.x;
+        }
+
+        double frameTime = platformGetTime() - timeManager.lastTime;
+        if (frameTime < mainDt) {
+            double sleepTime = mainDt - frameTime;
+            platformSleep(sleepTime);
+        }
     }
     engineShutdown();
 }

@@ -97,6 +97,7 @@ typedef struct UIText {
     uint32_t color;
     char* text;
     uint32_t textLength;
+    uint32_t allocatedCharCount;
     UICharacterInstance* characters;
 } UIText;
 typedef struct UIState {

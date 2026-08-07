@@ -2,10 +2,12 @@
 #include "asset_manager.h"
 #include "asset_types.h"
 #include "platform.h"
-#include <stdint.h>
-#include <vulkan/vulkan_core.h>
 
-const char* instanceLayers[] = {"VK_LAYER_KHRONOS_validation"};
+const char* instanceLayers[] = {
+#ifdef _DEBUG
+    "VK_LAYER_KHRONOS_validation",
+#endif
+};
 const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE1_EXTENSION_NAME};
 
 extern int isWindowClosed;
@@ -29,9 +31,10 @@ void createInstance() {
     createInfo.ppEnabledLayerNames = instanceLayers;
     createInfo.enabledExtensionCount = darray_get_length(exts);
     createInfo.ppEnabledExtensionNames = (const char**)exts;
-    
-    if (vkCreateInstance(&createInfo, NULL, &internalStateRenderer.instance) != VK_SUCCESS) {
-        FATAL("Failed to create vk instance");
+
+    VkResult result;
+    if ((result = vkCreateInstance(&createInfo, NULL, &internalStateRenderer.instance)) != VK_SUCCESS) {
+        FATAL("Failed to create vk instance, err = %d", result);
     }
 
     darray_destroy(exts);
@@ -123,7 +126,7 @@ void pickPhysicalDevice() {
         vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionsCount, NULL);
         VkExtensionProperties* extensions = darray_create_resized(VkExtensionProperties, deviceExtensionsCount);
         vkEnumerateDeviceExtensionProperties(device, NULL, &deviceExtensionsCount, extensions);
-        uint32_t requiredDeviceExtensionsCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
+        uint32_t requiredDeviceExtensionsCount = CARRAY_SIZE(deviceExtensions);
         bool allExtensionFound = true;
         for (uint32_t i = 0; i < requiredDeviceExtensionsCount; i++) {
             bool found = false;
@@ -199,7 +202,7 @@ void createLogicalDevice() {
     createInfo.pQueueCreateInfos = queueCreateInfos;
     createInfo.queueCreateInfoCount = darray_get_length(queueCreateInfos);
     createInfo.ppEnabledExtensionNames = deviceExtensions;
-    createInfo.enabledExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
+    createInfo.enabledExtensionCount = CARRAY_SIZE(deviceExtensions);
     createInfo.pEnabledFeatures = &features;
     if (vkCreateDevice(internalStateRenderer.physicalDevice, &createInfo, NULL, &internalStateRenderer.device) != VK_SUCCESS) {
         FATAL("Failed to create vulkan device");
@@ -675,7 +678,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
         PipelineState uiPipelineState = internalStateRenderer.pipelineStates[PIPELINE_TYPE_UI];
         UIPipelineInternalState* uiPipelineInternalState = uiPipelineState.internalState;
 
-        UISSBO_0 uISSBO_0 = {};
+        UISSBO_0* uISSBO_0 = uiPipelineInternalState->SSBOMapped[0];
         int characterInstanceIndex = 0;
 
         UIText* uiText;
@@ -686,17 +689,14 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                     WARN("UI character hard limit reached");
                     break;
                 }
-                uISSBO_0.uiCharacterInstances[characterInstanceIndex++] = *characterInstance;
+                uISSBO_0->uiCharacterInstances[characterInstanceIndex++] = *characterInstance;
             }
         }
-
-        UIPushConstant uiPushConstant = {};
         
-        memcpy(uiPipelineInternalState->SSBOMapped[0], &uISSBO_0, sizeof(uISSBO_0));
-
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipelineState.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, uiPipelineState.pipelineLayout, 1, 1, &uiPipelineInternalState->descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
         
+        UIPushConstant uiPushConstant = {};
         uiPushConstant.uiComponentType = UI_TEXT;
         vkCmdPushConstants(commandBuffer, uiPipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(UIPushConstant), &uiPushConstant);
         vkCmdDraw(commandBuffer, 4, characterInstanceIndex + 1, 0, 0);
@@ -790,8 +790,13 @@ void drawFrame(double deltaTime) {
     internalStateRenderer.currentFrame = (internalStateRenderer.currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+#include "rendererAPI.h"
+
 void mainLoop() {
     TimeManager timeManager = timeManagerStart();
+
+    UIText* frameRateText = rendererUICreateUIText((vec3){{1, -1}}, (vec4){{0, 0, 1}}, 1);
+    PassiveDelay frameRateTextUpdateDelay = passiveDelaySet(0.5);
 
     while (!platformGetPlatformState()->isWindowClosed) {
         timeManagerUpdate(&timeManager);
@@ -802,6 +807,12 @@ void mainLoop() {
         if (frameTime < internalStateRenderer.targetFrameTime) {
             double sleepTime = internalStateRenderer.targetFrameTime - frameTime;
             platformSleep(sleepTime);
+        }
+        
+        if (passiveDelayIsDoneIfSoReset(&frameRateTextUpdateDelay)) {
+            rendererUIPrint(frameRateText, "%.2f", 1 / timeManager.deltaTime);
+            frameRateText->position.x = 1 - frameRateText->textLength * frameRateText->characters[0].size.x;
+            frameRateText->position.y = -1 + 1*frameRateText->characters[0].size.y;
         }
     }
 }

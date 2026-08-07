@@ -45,17 +45,29 @@ void rendererUIPrint(UIText* uiText, const char* message, ...) {
     va_start(args, message);
     vsnprintf(output, MAX_UI_CHARACTERS, message, args);
     va_end(args);
-    
-    uint32_t charLength = strlen(output);
 
-    if (uiText->text) memfree(uiText->text, uiText->textLength + 1, MEMORY_TAG_RENDERER_UI);
-    uiText->text = memalloc(charLength + 1, MEMORY_TAG_RENDERER_UI);
-    uiText->textLength = charLength;
+    uint32_t textLength = strlen(output);
 
-    memcpy(uiText->text, output, (charLength + 1) * sizeof(char));
+    if (textLength > uiText->allocatedCharCount) {
+        if (uiText->text) memfree(uiText->text, uiText->allocatedCharCount + 1, MEMORY_TAG_RENDERER_UI);
+        uiText->text = memalloc(textLength + 1, MEMORY_TAG_RENDERER_UI);
+        uiText->textLength = textLength;
+        uiText->allocatedCharCount = textLength;
 
-    if (uiText->characters) darray_destroy(uiText->characters);
-    uiText->characters = darray_create_resized_memoryTag(UICharacterInstance, charLength, MEMORY_TAG_RENDERER_UI);
+        memcpy(uiText->text, output, textLength + 1);
+
+        if (uiText->characters) {
+            darray_get_state(uiText->characters)->capacity = uiText->allocatedCharCount;
+            darray_get_state(uiText->characters)->length = uiText->allocatedCharCount;
+            darray_destroy(uiText->characters);
+        }
+        uiText->characters = darray_create_resized_memoryTag(UICharacterInstance, textLength, MEMORY_TAG_RENDERER_UI);
+    } else {
+        uiText->textLength = textLength;
+        memcpy(uiText->text, output, textLength + 1);
+        darray_get_state(uiText->characters)->capacity = textLength;
+        darray_get_state(uiText->characters)->length = textLength;
+    }
 
     rendererUIRepositionText(uiText);
 }
