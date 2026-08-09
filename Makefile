@@ -26,6 +26,7 @@ ifeq ($(PLATFORM), Linux)
 	CC = gcc
 	CFLAGS += -fpic -Wall
 	LDFLAGS += -lvulkan -lxkbcommon -lm -pthread
+	LDFLAGS += -Wl,-rpath,libs
 	ifdef USE_GLFW
 		CPPFLAGS += -DUSE_GLFW
 		LDFLAGS += -lglfw
