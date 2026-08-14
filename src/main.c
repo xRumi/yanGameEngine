@@ -119,13 +119,12 @@ int main() {
     UIText* frameRateText = rendererUICreateUIText((vec3){{1, -1}}, (vec4){{1}}, 1);
     PassiveDelay frameRateTextUpdateDelay = passiveDelaySet(0.5);
 
-    PassiveDelay physicsEngineDelay = passiveDelaySet(physicsDt);
-
     bool gameOver = false, paused = true;
     int score = 0;
 
     WARN("Press g to start playing..");
 
+    double runPhysicsAt = 0;
     TimeManager timeManager = timeManagerStart();
     while (!platformGetPlatformState()->isWindowClosed) {
         timeManagerUpdate(&timeManager);
@@ -165,7 +164,6 @@ int main() {
                     score++;
                     piller->scored = true;
                     playSound("./assets/sounds/sfx_point.wav");
-                    // DEBUG("score = %d", score);
                     rendererUIPrint(scoreText, "%d", score);
                 }
                 if (piller->upper->transform.translation.x <= -5) {
@@ -174,8 +172,8 @@ int main() {
                     randomizeTwoPillarTranslation(piller, 1.3, 2.1);
                     piller->scored = false;
                 }
-                piller->upper->physicsBody->velocity.x = clamp(piller->upper->physicsBody->velocity.x - 0.015 * physicsDt, -3, -1.5);
-                piller->lower->physicsBody->velocity.x = clamp(piller->lower->physicsBody->velocity.x - 0.015 * physicsDt, -3, -1.5);
+                piller->upper->physicsBody->velocity.x = clamp(piller->upper->physicsBody->velocity.x - 0.015 * timeManager.deltaTime, -3, -1.5);
+                piller->lower->physicsBody->velocity.x = piller->upper->physicsBody->velocity.x;
                 if (isCollisionSphereToAabb(birdEntity->physicsBody->collider, piller->upper->physicsBody->collider) || isCollisionSphereToAabb(birdEntity->physicsBody->collider, piller->lower->physicsBody->collider)) {
                     gameOver = true;
                 }
@@ -190,7 +188,16 @@ int main() {
                 continue;
             }
 
-            if (passiveDelayIsDoneIfSoReset(&physicsEngineDelay)) physicsEngineRun(scene->physicsEngine, physicsDt);
+            if (!runPhysicsAt) runPhysicsAt = timeManager.elapsedTime;
+            int steps = 0;
+            while (runPhysicsAt <= timeManager.elapsedTime) {
+                physicsEngineRun(scene->physicsEngine, physicsDt);
+                runPhysicsAt += physicsDt;
+                if (++steps >= 5) {
+                    runPhysicsAt = timeManager.elapsedTime;
+                    break;
+                }
+            }
             sceneEntityApplyTransform(scene);
         }
         rendererUIFixScale();
