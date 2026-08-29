@@ -62,6 +62,26 @@ float vec3_length_sqr(vec3 a) {
 float vec3_length(vec3 a) {
     return sqrt(vec3_length_sqr(a));
 }
+float vec4_length_sqr(vec4 a) {
+    return
+        a.ele[0] * a.ele[0] +
+        a.ele[1] * a.ele[1] +
+        a.ele[2] * a.ele[2] +
+        a.ele[3] * a.ele[3];
+}
+float vec4_length(vec4 a) {
+    return sqrt(vec4_length_sqr(a));
+}
+vec4 vec4_normalize(vec4 a) {
+    float length = vec4_length(a);
+    vec4 ret = {{
+        a.ele[0] / length,
+        a.ele[1] / length,
+        a.ele[2] / length,
+        a.ele[3] / length,
+    }};
+    return ret;
+}
 
 vec4 vec4_from_vec3(vec3 a, float w) {
     return (vec4){{
@@ -89,8 +109,36 @@ vec3 vec3_max(vec3 a, vec3 b) {
     }};
 }
 
+vec4 vec4_add(vec4 a, vec4 b) {
+    return (vec4){{
+        a.x + b.x,
+        a.y + b.y,
+        a.z + b.z,
+        a.w + b.w
+    }};
+}
+vec4 vec4_scale(vec4 a, float scale) {
+    return (vec4){{
+        a.ele[0] * scale,
+        a.ele[1] * scale,
+        a.ele[2] * scale,
+        a.ele[3] * scale
+    }};
+}
+vec4 vec4_sub(vec4 a, vec4 b) {
+    return (vec4){{
+        a.ele[0] - b.ele[0],
+        a.ele[1] - b.ele[1],
+        a.ele[2] - b.ele[2],
+        a.ele[3] - b.ele[3]
+    }};
+}
+
 vec3 vec3_lerp(vec3 a, vec3 b, float t) {
     return vec3_add(a, vec3_scale(vec3_sub(b, a), t));
+}
+vec4 vec4_lerp(vec4 a, vec4 b, float t) {
+    return vec4_add(a, vec4_scale(vec4_sub(b, a), t));
 }
 float scaler_lerp(float a, float b, float t) {
     return a + (b - a) * t;
@@ -252,4 +300,25 @@ mat4 mat4_view_YXZ(vec3 position, vec3 rotation) {
         -vec3_dot(u, position), -vec3_dot(v, position), -vec3_dot(w, position), 1
     }};
   return ret;
+}
+
+mat4 mat4_rotation_from_quat(vec4 quat) {
+    float x2 = quat.x * quat.x,
+          y2 = quat.y * quat.y,
+          z2 = quat.z * quat.z,
+          xy = quat.x * quat.y,
+          yz = quat.y * quat.z,
+          zx = quat.z * quat.x,
+          xw = quat.x * quat.w,
+          yw = quat.y * quat.w,
+          zw = quat.z * quat.w;
+
+    mat4 ret = {{
+        1.0f - 2.0f * (y2 + z2), 2.0f * (xy + zw),        2.0f * (zx - yw),        0.0f,
+        2.0f * (xy - zw),        1.0f - 2.0f * (x2 + z2), 2.0f * (yz + xw),        0.0f,
+        2.0f * (zx + yw),        2.0f * (yz - xw),        1.0f - 2.0f * (x2 + y2), 0.0f,
+        0.0f,                    0.0f,                    0.0f,                    1.0f
+    }};
+
+    return mat4_transpose(ret);
 }
