@@ -67,19 +67,17 @@ typedef struct Mesh {
 } Mesh;
 
 typedef struct NodeAnimationSampler {
+    float animationTime;
     struct {
         float* input;
-        float inputMax;
         vec4* output;
     } rotation;
     struct {
         float* input;
-        float inputMax;
         vec3* output;
     } translation;
     struct {
         float* input;
-        float inputMax;
         vec3* output;
     } scale;
 } NodeAnimationSampler;

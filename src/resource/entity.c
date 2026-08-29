@@ -42,7 +42,7 @@ void entityTransformApply(Entity* entity) {
 }
 void entityTransformReset(Entity* entity) {
     entity->transform.translation = (vec3){{}};
-    entity->transform.rotation = (vec3){{}};
+    entity->transform.rotation = (vec4){{}};
     entity->transform.scale = (vec3){{1, 1, 1}};
     entityTransformApply(entity);
 }

@@ -4,7 +4,7 @@
 
 typedef struct Transform {
     vec3 translation;
-    vec3 rotation;
+    vec4 rotation;
     vec3 scale;
 } Transform;
 

@@ -4,41 +4,6 @@
 #include "rendererAPI.h"
 #include "utils.h"
 
-typedef struct TwoPillar {
-    Entity* upper;
-    Entity* lower;
-    bool scored;
-} TwoPillar;
-
-void randomizeTwoPillarTranslation(TwoPillar* pillar, float minHeight, float maxHeight) {
-    int height = clamp(rand() % 10, minHeight, maxHeight);
-    float center = 3 * (rand() / (double)RAND_MAX) - 1.5;
-    entityTransformSetTranslationY(pillar->upper, center + height / 2.0 + 2);
-    entityTransformSetTranslationY(pillar->lower, center - height / 2.0 - 2);
-}
-
-TwoPillar* createTwoPillarArray(Model* pillar, Scene* scene, int count, float start, float distance) {
-    TwoPillar* array = darray_create_resized(TwoPillar, count);
-    for (int i = 0; i < count; i++) {
-        Entity* upperPillar = sceneCreateEntity(scene, pillar);
-        entityTransformSetTranslation(upperPillar, (vec3){{start + distance * i, 2, 0.5}});
-        entityCreatePhysicsBody(upperPillar);
-        physicsBodyGravitySet(upperPillar->physicsBody, 0);
-
-        Entity* lowerPillar = sceneCreateEntity(scene, pillar);
-        entityTransformSetTranslation(lowerPillar, (vec3){{start + distance * i, -2, 0.5}});
-        entityCreatePhysicsBody(lowerPillar);
-        physicsBodyGravitySet(lowerPillar->physicsBody, 0);
-
-        array[i] = (TwoPillar) {
-            .upper = upperPillar,
-            .lower = lowerPillar
-        };
-        randomizeTwoPillarTranslation(&array[i], 1, 2);
-    }
-    return array;
-}
-
 void handleCamera(Camera* camera, double deltaTime) {
     vec3 cameraPosition = atomicVec3GetVec3(&camera->position);
     vec3 cameraRotation = atomicVec3GetVec3(&camera->rotation);
@@ -83,22 +48,15 @@ int main() {
 
     double mainDt = 1.0 / cpuFps;
     double physicsDt = 1 / 60.0;
+    int physicsMaxSteps = 5;
 
-    Model* background = assetGenerateRectangle((vec3){{-3, 5}}, (vec3){{-3, -5}}, (vec3){{3, -5}}, (vec3){{3, 5}}, "./assets/world/models/FlappyBird/bg.png");
-    Model* pillar = assetGenerateRectangle((vec3){{-0.2, 2}}, (vec3){{-0.2, -2}}, (vec3){{0.2, -2}}, (vec3){{0.2, 2}}, "./assets/world/models/FlappyBird/pillar.jpg");
-    Model* bird = assetGenerateUVSphere(8, 8, 0.13, (vec4){{1, 0, 0, 1}});
+    Model* model = assetLoadGLTF("./assets/world/models/BoxAnimated", "BoxAnimated.gltf");
 
     Scene* scene = sceneCreate();
 
-    Entity* backgroundEntity = sceneCreateEntity(scene, background);
-    (void)backgroundEntity;
-
-    TwoPillar* twoPillarArray = createTwoPillarArray(pillar, scene, 4, 0, 2.5);
-
-    Entity* birdEntity = sceneCreateEntity(scene, bird);
-    entityTransformSetTranslation(birdEntity, (vec3){{-1.6, 0, 0.5}});
-    entityCreatePhysicsBody(birdEntity);
-    physicsBodyGravitySet(birdEntity->physicsBody, 5);
+    Entity* modelEntity = sceneCreateEntity(scene, model);
+    entityCreatePhysicsBody(modelEntity);
+    physicsBodyStaticSet(modelEntity->physicsBody, true);
 
     sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
     sceneCameraSetPosition(scene, (vec3){{0, 0, 7}});
@@ -106,23 +64,14 @@ int main() {
 
     sceneEntityApplyTransform(scene);
 
-    bool locked = false;
+    bool locked = false, paused = false;
     PassiveDelay lKey = passiveDelaySet(0.3);
     PassiveDelay xKey = passiveDelaySet(0.3);
     PassiveDelay escKey = passiveDelaySet(0.3);
-    PassiveDelay gKey = passiveDelaySet(0.2);
-
-    UIText* scoreText = rendererUICreateUIText((vec3){{-1, -1}}, (vec4){{0, 1, 0, 1}}, 1.2);
-    rendererUIPrint(scoreText, "%d", 0);
-    UIText* gameOverText = rendererUICreateUIText((vec3){{-0.4, 0}}, (vec4){{1, 0, 0, 1}}, 1.4);
+    PassiveDelay gKey = passiveDelaySet(0.3);
 
     UIText* frameRateText = rendererUICreateUIText((vec3){{1, -1}}, (vec4){{1}}, 1);
     PassiveDelay frameRateTextUpdateDelay = passiveDelaySet(0.5);
-
-    bool gameOver = false, paused = true;
-    int score = 0;
-
-    WARN("Press g to start playing..");
 
     double runPhysicsAt = 0;
     TimeManager timeManager = timeManagerStart();
@@ -147,59 +96,25 @@ int main() {
             platformGetPlatformState()->isWindowClosed = true;
         }
 
-        if (paused) {
-            if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
-                paused = false;
-            }
+        if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
+            paused ^= 1;
+            runPhysicsAt = timeManager.elapsedTime;
+            DEBUG(paused ? "Paused" : "Resumed");
         }
 
-        if (!gameOver && !paused) {
-            if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
-                playSound("./assets/sounds/sfx_wing.wav");
-                birdEntity->physicsBody->velocity.y = 3;
-            }
-            TwoPillar* piller;
-            darray_foreach(twoPillarArray, piller) {
-                if (piller->upper->transform.translation.x <= birdEntity->transform.translation.x && !piller->scored) {
-                    score++;
-                    piller->scored = true;
-                    playSound("./assets/sounds/sfx_point.wav");
-                    rendererUIPrint(scoreText, "%d", score);
-                }
-                if (piller->upper->transform.translation.x <= -5) {
-                    piller->upper->transform.translation.x = 5;
-                    piller->lower->transform.translation.x = 5;
-                    randomizeTwoPillarTranslation(piller, 1.3, 2.1);
-                    piller->scored = false;
-                }
-                piller->upper->physicsBody->velocity.x = clamp(piller->upper->physicsBody->velocity.x - 0.015 * timeManager.deltaTime, -3, -1.5);
-                piller->lower->physicsBody->velocity.x = piller->upper->physicsBody->velocity.x;
-                if (isCollisionSphereToAabb(birdEntity->physicsBody->collider, piller->upper->physicsBody->collider) || isCollisionSphereToAabb(birdEntity->physicsBody->collider, piller->lower->physicsBody->collider)) {
-                    gameOver = true;
-                }
-            }
-            if (birdEntity->transform.translation.y > 2.75 || birdEntity->transform.translation.y < -2.75 || gameOver) {
-                gameOver = true;
-                playSound("./assets/sounds/sfx_hit.wav");
-                WARN("GAME OVER\n\tPress ESC to close..");
-            }
-            if (gameOver) {
-                rendererUIPrint(gameOverText, "Game Over");
-                continue;
-            }
-
+        if (!paused) {
             if (!runPhysicsAt) runPhysicsAt = timeManager.elapsedTime;
             int steps = 0;
             while (runPhysicsAt <= timeManager.elapsedTime) {
                 physicsEngineRun(scene->physicsEngine, physicsDt);
                 runPhysicsAt += physicsDt;
-                if (++steps >= 5) {
+                if (++steps >= physicsMaxSteps) {
                     runPhysicsAt = timeManager.elapsedTime;
                     break;
                 }
             }
-            sceneEntityApplyTransform(scene);
         }
+        sceneEntityApplyTransform(scene);
         rendererUIFixScale();
         platformPullEvent();
 

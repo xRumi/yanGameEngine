@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 
 #define DEBUG_vec3(v) DEBUG("(%.2f, %.2f, %.2f)", v.x, v.y, v.z)
+#define v3(a, b, c) (vec3){{a, b, c}}
 
 void soundEngineInitialize();
 void playSound(const char* path);

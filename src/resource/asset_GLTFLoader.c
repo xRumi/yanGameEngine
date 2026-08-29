@@ -105,6 +105,32 @@ Vertex* loadGLTFMeshVertices(const cgltf_attribute* attributes, uint32_t attribu
     return vertices;
 }
 
+float findNodeAnimationTime(Node* node) {
+    float animationTime = node->animationSampler.animationTime;
+    Node** childRef;
+    darray_foreach(node->child, childRef) {
+        Node* child = *childRef;
+        animationTime = MAX(animationTime, findNodeAnimationTime(child));
+    }
+    return animationTime;
+}
+void setNodeAnimationTime(Node* node, float animationTime) {
+    node->animationSampler.animationTime = animationTime;
+    Node** childRef;
+    darray_foreach(node->child, childRef) {
+        Node* child = *childRef;
+        setNodeAnimationTime(child, animationTime);
+    }
+}
+void syncNodeAnimationTime(HashMap* nodes) {
+    Node* node;
+    hashmap_foreach(nodes, node) {
+        if (!node->isAnimated) continue;
+        float animationTime = findNodeAnimationTime(node);
+        setNodeAnimationTime(node, animationTime);
+    }
+}
+
 HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
     HashMap* nodes = hashmap_create(gltf_data->nodes_count);
     for (int i = 0; i < gltf_data->nodes_count; i++) {
@@ -138,24 +164,42 @@ HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
                     node->animationSampler.translation.input = darray_create_resized_memoryTag(float, sampler->input->count, MEMORY_TAG_ASSET_MANAGER);
                     node->animationSampler.translation.output = darray_create_resized_memoryTag(vec3, sampler->output->count, MEMORY_TAG_ASSET_MANAGER);
                     for (int k = 0; k < sampler->input->count; k++) {
-                        float time;
+                        float time = 0;
                         vec3 translation = {};
                         memcpy(&time, sampler->input->buffer_view->buffer->data + sampler->input->offset + sampler->input->buffer_view->offset + sampler->input->stride * k, sizeof(float));
                         memcpy(&translation, sampler->output->buffer_view->buffer->data + sampler->output->offset + sampler->output->buffer_view->offset + sampler->output->stride * k, sizeof(vec3));
                         node->animationSampler.translation.input[k] = time;
                         node->animationSampler.translation.output[k] = translation;
-                        if (k == sampler->input->count - 1) node->animationSampler.translation.inputMax = time;
+                        node->animationSampler.animationTime = MAX(node->animationSampler.animationTime, time);
                     }
                     break;
                 }
-                case cgltf_animation_path_type_rotation:
+                case cgltf_animation_path_type_rotation: {
+                    node->animationSampler.rotation.input = darray_create_resized_memoryTag(float, sampler->input->count, MEMORY_TAG_ASSET_MANAGER);
+                    node->animationSampler.rotation.output = darray_create_resized_memoryTag(vec4, sampler->output->count, MEMORY_TAG_ASSET_MANAGER);
+                    for (int k = 0; k < sampler->input->count; k++) {
+                        float time = 0;
+                        vec4 rotation = {};
+                        memcpy(&time, sampler->input->buffer_view->buffer->data + sampler->input->offset + sampler->input->buffer_view->offset + sampler->input->stride * k, sizeof(float));
+                        memcpy(&rotation, sampler->output->buffer_view->buffer->data + sampler->output->offset + sampler->output->buffer_view->offset + sampler->output->stride * k, sizeof(vec4));
+                        node->animationSampler.rotation.input[k] = time;
+                        node->animationSampler.rotation.output[k] = rotation;
+                        node->animationSampler.animationTime = MAX(node->animationSampler.animationTime, time);
+                    }
+                    break;
+                }
                 case cgltf_animation_path_type_scale:
                 case cgltf_animation_path_type_weights:
                 case cgltf_animation_path_type_max_enum:
+                default: WARN("Unknown animation path type");
                 break;
             }
         }
     }
+
+    // sync animationTime of all the connected nodes
+    syncNodeAnimationTime(nodes);
+
     return nodes;
 }
 
@@ -184,7 +228,7 @@ HashMap* loadGLTFImages(const char* gltf_dir, cgltf_image* images, uint32_t imag
             continue;
         }
         snprintf(path, 256, "%s/%s", gltf_dir, images[i].uri);
-        Image* image = imageLoadFromPath(images[i].uri);
+        Image* image = imageLoadFromPath(path);
         if (!image) continue;
         hashmap_put(imageHashMap, hash_string(images[i].uri), (uint64_t)image);
     }
