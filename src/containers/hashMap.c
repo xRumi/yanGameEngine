@@ -5,7 +5,7 @@ uint64_t hashFunction(uint64_t key, uint64_t capacity) {
 }
 
 HashMap* hashmap_create(uint64_t capacity) {
-    HashMap* hashMap = memalloc(sizeof(HashNode), MEMORY_TAG_HASHMAP);
+    HashMap* hashMap = memalloc(sizeof(HashMap), MEMORY_TAG_HASHMAP);
     hashMap->capacity = capacity;
     hashMap->size = 0;
     hashMap->nodes = darray_create_resized_memoryTag(HashNode*, capacity, MEMORY_TAG_HASHMAP);
@@ -71,7 +71,7 @@ void hashmap_destroy(HashMap* hashMap) {
     uint64_t capacity = hashMap->capacity;
     for (uint64_t i = 0; i < capacity; i++) darray_destroy(hashMap->nodes[i]);
     darray_destroy(hashMap->nodes);
-    memfree(hashMap, sizeof(HashNode), MEMORY_TAG_HASHMAP);
+    memfree(hashMap, sizeof(HashMap), MEMORY_TAG_HASHMAP);
 }
 
 uint64_t hash_string(const char* str) {
