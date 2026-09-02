@@ -47,9 +47,13 @@ typedef struct SwapchainSupportDetails {
     bool isComplete;
 } SwapchainSupportDetails;
 
+typedef struct EntityData {
+    bool isLightSource;
+} EntityData;
 typedef struct PushConstant0 {
     mat4 model;
     mat4 node;
+    EntityData entityData;
 } PushConstant0;
 
 typedef struct PipelineState {

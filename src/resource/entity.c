@@ -16,6 +16,10 @@ Entity* entityCreate(Model* model, bool isHidden) {
     entity->timeManager = timeManagerStart();
     return entity;
 }
+void entityDestroy(Entity* entity) {
+    DEBUG("Remove entity id=%d", entity->id);
+    // TODO: implement entityDestroy
+}
 
 void entitySetHidden(Entity* entity, bool isHidden) {
     entity->isHidden = isHidden;

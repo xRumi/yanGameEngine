@@ -27,7 +27,7 @@ void entityNodeAnimationApply(Entity* entity) {
         };
         if (node->animationSampler.translation.input) {
             float* inputs = node->animationSampler.translation.input;
-            double animationTime = fmod(entity->timeManager.elapsedTime / 2, node->animationSampler.animationTime);
+            double animationTime = fmod(entity->timeManager.elapsedTime, node->animationSampler.animationTime);
             int i = 1;
             for (; i < darray_get_length(inputs); i++)
                 if (animationTime <= inputs[i]) break;
@@ -36,7 +36,7 @@ void entityNodeAnimationApply(Entity* entity) {
         }
         if (node->animationSampler.rotation.input) {
             float* inputs = node->animationSampler.rotation.input;
-            double animationTime = fmod(entity->timeManager.elapsedTime / 2, node->animationSampler.animationTime);
+            double animationTime = fmod(entity->timeManager.elapsedTime, node->animationSampler.animationTime);
             int i = 1;
             for (; i < darray_get_length(inputs); i++)
                 if (animationTime <= inputs[i]) break;

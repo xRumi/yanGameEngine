@@ -24,6 +24,10 @@ void hashmap_destroy(HashMap* hashMap);
 uint64_t hash_string(const char* str);
 
 extern volatile int volatile_true;
+#define hashmap_foreach_keys(hashMap, x) \
+    for (int __size = hashMap->capacity, __i = 0; __i < __size; __i++) \
+        for (int __nodeSize = darray_get_length(hashMap->nodes[__i]), __j = 0; __j < __nodeSize && ((x = (typeof(x))hashMap->nodes[__i][__j].key) || volatile_true); __j++)
+
 #define hashmap_foreach(hashMap, x) \
     for (int __size = hashMap->capacity, __i = 0; __i < __size; __i++) \
         for (int __nodeSize = darray_get_length(hashMap->nodes[__i]), __j = 0; __j < __nodeSize && ((x = (typeof(x))hashMap->nodes[__i][__j].val) || volatile_true); __j++)

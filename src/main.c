@@ -51,6 +51,7 @@ int main() {
     int physicsMaxSteps = 5;
 
     Model* model = assetLoadGLTF("./assets/world/models/BoxAnimated", "BoxAnimated.gltf");
+    Model* sphare = assetGenerateUVSphere(8, 8, 1, v4(1, 1, 1, 1));
 
     Scene* scene = sceneCreate();
 
@@ -58,7 +59,17 @@ int main() {
     entityCreatePhysicsBody(modelEntity);
     physicsBodyStaticSet(modelEntity->physicsBody, true);
 
-    sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
+    Light* pointLight = sceneCreatePointLight(scene, sphare, (PointLight){
+        //.ambient = {{.1, .1, .1}},
+        .ambient = {{1, 1, 1}},
+        .position = {{5, 0, 0}},
+        .diffuse = {{1, 1, 1}},
+        .linear = 0.007,
+        .quadratic = 0.00098
+    });
+    Entity* pointLightEntity = scenePointLightGetEntity(scene, pointLight);
+    pointLightEntity->transform.scale = v3_all(0.1);
+
     sceneCameraSetPosition(scene, (vec3){{0, 0, 7}});
     rendererSetScene(scene);
 
@@ -97,6 +108,7 @@ int main() {
         }
 
         if (platformInputIsKeyDown(KEY_g) && passiveDelayIsDoneIfSoReset(&gKey)) {
+            pointLightEntity->transform.translation = v3_all(rand() % 5);
             paused ^= 1;
             runPhysicsAt = timeManager.elapsedTime;
             DEBUG(paused ? "Paused" : "Resumed");

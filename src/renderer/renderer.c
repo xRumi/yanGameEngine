@@ -476,14 +476,34 @@ void updateFrameUBO(double deltaTime) {
     vec3 cameraPosition = atomicVec3GetVec3(&internalStateRenderer.scene->camera.position);
     vec3 cameraRotation = atomicVec3GetVec3(&internalStateRenderer.scene->camera.rotation);
 
-    internalStateRenderer.scene->frameUBO.view = mat4_view_YXZ(cameraPosition, cameraRotation);
-    internalStateRenderer.scene->frameUBO.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
-    internalStateRenderer.scene->frameUBO.cameraPosition = vec4_from_vec3(cameraPosition, 0);
+    FrameUBO frameUBO = {};
+
+    frameUBO.view = mat4_view_YXZ(cameraPosition, cameraRotation);
+    frameUBO.projection = mat4_perspective(45, (float)platformGetPlatformState()->width / (float)platformGetPlatformState()->height, 0.1f, 1000.0f);
+    frameUBO.cameraPosition = vec4_from_vec3(cameraPosition, 0);
+
+    LightUBO lightUBO = {};
+
+    Light* light;
+    hashmap_foreach_keys(internalStateRenderer.scene->light.lightToEntity, light) {
+        switch (light->type) {
+            case LIGHT_TYPE_DIRECTIONAL: {
+                lightUBO.directionalLights[lightUBO.directionalLightCount++] = *(DirectionalLight*)light->data;
+                break;
+            }
+            case LIGHT_TYPE_POINT: {
+                lightUBO.pointLights[lightUBO.pointLightCount++] = *(PointLight*)light->data;
+                Entity* entity = (Entity*)hashmap_get(internalStateRenderer.scene->light.lightToEntity, (uint64_t)light);
+                lightUBO.pointLights[lightUBO.pointLightCount - 1].position = vec4_from_vec3(entity->transform.translation, .0f);
+                break;
+            }
+        }
+    }
 
     PipelineState* pipelineState;
     darray_foreach(internalStateRenderer.pipelineStates, pipelineState) {
-        memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->frameUBO, sizeof(FrameUBO));
-        memcpy(pipelineState->lightUBOMapped[internalStateRenderer.currentFrame], &internalStateRenderer.scene->lightUBO, sizeof(LightUBO));
+        memcpy(pipelineState->frameUBOMapped[internalStateRenderer.currentFrame], &frameUBO, sizeof(FrameUBO));
+        memcpy(pipelineState->lightUBOMapped[internalStateRenderer.currentFrame], &lightUBO, sizeof(LightUBO));
     }
 }
 
@@ -659,8 +679,10 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                 if (!nodeAnimation) ERROR("Node Animation not found");
                 pushConstant0.node = atomicMatrixGetMatrix(&nodeAnimation->matrix);
             } else pushConstant0.node = node->matrix;
+            
+            pushConstant0.entityData.isLightSource = entity->isLightSource;
 
-            vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant0), &pushConstant0);
+            vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushConstant0), &pushConstant0);
 
             MeshRendererState* meshRendererState = mesh->meshRendererStateRef;
             VkDeviceSize offsets[] = {0};

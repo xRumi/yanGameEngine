@@ -63,10 +63,10 @@ void* _darray_insert_at(void* darray, const void* data, uint64_t index) {
 void* _darray_erase_at(void* darray, uint64_t index) {
     DarrayState* state = _darray_get_state(darray);
     if (state->length == 0 || state->length <= index) {
-        FATAL("darray - erase_at index out of bounds");
+        FATAL("darray.erase_at(%d) index out of bounds", index);
         return darray;
     }
-    memmove(VOID_P_TO_UCHAR_P(darray) + index*state->stride, VOID_P_TO_UCHAR_P(darray) + (index + 1)*state->stride, (state->length - index)*state->stride);
+    memmove(VOID_P_TO_UCHAR_P(darray) + index*state->stride, VOID_P_TO_UCHAR_P(darray) + (index + 1)*state->stride, (state->length - index - 1)*state->stride);
     state->length--;
     return darray;
 }

@@ -27,11 +27,19 @@ layout (set = 0, binding = 0) uniform UniformBufferObject0 {
     vec4 cameraPosition;
 } frameUBO;
 layout (set = 0, binding = 1) uniform UniformBufferObject1 {
-    float pointLightCount, directionalLightCount;
+    int pointLightCount, directionalLightCount;
     float f_reserve0, f_reserve1;
     PointLight pointLights[POINT_LIGHT_MAX_COUNT];
     DirectionalLight directionalLights[DIRECTIONAL_LIGHT_MAX_COUNT];
 } lightUBO;
+struct EntityData {
+    bool isLightSource;
+};
+layout (push_constant) uniform constant {
+    mat4 model;
+    mat4 node;
+    EntityData entityData;
+} PushConstant0;
 
 layout (set = 1, binding = 0) uniform sampler2D baseColorSampler;
 layout (set = 1, binding = 1) uniform sampler2D normalSampler;
@@ -66,6 +74,11 @@ void main() {
     vec4 baseColor = texture(baseColorSampler, fragTexCoord);
     vec4 cameraDirection = normalize(frameUBO.cameraPosition - vec4(fragPosition, 0));
     vec4 normal = normalize(vec4(fragNormal, 0));
+
+    if (PushConstant0.entityData.isLightSource) {
+        outColor = fragColor;
+        return;
+    }
 
     outColor = vec4(0);
     for (int i = 0; i < lightUBO.directionalLightCount; i++)

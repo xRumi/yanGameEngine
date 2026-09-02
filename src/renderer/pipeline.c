@@ -251,7 +251,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
 
                 PipelineOptionPushConstant* pushConstants = darray_create_resized(PipelineOptionPushConstant, 1);
                 pushConstants[0].size = sizeof(PushConstant0);
-                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT;
+                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/default.vert.spv",
@@ -343,7 +343,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
 
                 PipelineOptionPushConstant* pushConstants = darray_create_resized(PipelineOptionPushConstant, 1);
                 pushConstants[0].size = sizeof(PushConstant0);
-                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT;
+                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
                 PipelineOptions options = {
                     .vertShaderPath = "assets/shaders/spv/wireframe.vert.spv",

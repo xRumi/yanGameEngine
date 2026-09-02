@@ -107,6 +107,17 @@ typedef struct Model {
     bool isRendererReady;
 } Model;
 
+typedef struct Camera {
+    AtomicVec3 position;
+    AtomicVec3 rotation;
+    float sensitivity;
+} Camera;
+typedef struct __attribute__((aligned(16))) FrameUBO {
+    mat4 view;
+    mat4 projection;
+    vec4 cameraPosition;
+} FrameUBO;
+
 #define POINT_LIGHT_MAX_COUNT 32
 #define DIRECTIONAL_LIGHT_MAX_COUNT 16
 typedef struct __attribute__((aligned(16))) PointLight {
@@ -123,32 +134,31 @@ typedef struct __attribute__((aligned(16))) DirectionalLight {
     vec4 diffuse;
     vec4 specular;
 } DirectionalLight;
-
-typedef struct Camera {
-    AtomicVec3 position;
-    AtomicVec3 rotation;
-    float sensitivity;
-} Camera;
-typedef struct __attribute__((aligned(16))) FrameUBO {
-    mat4 view;
-    mat4 projection;
-    vec4 cameraPosition;
-} FrameUBO;
 typedef struct __attribute__((aligned(16))) LightUBO {
-    float pointLightCount, directionalLightCount;
+    uint32_t pointLightCount, directionalLightCount;
     float f_reserve[2];
     PointLight pointLights[POINT_LIGHT_MAX_COUNT];
     DirectionalLight directionalLights[DIRECTIONAL_LIGHT_MAX_COUNT];
 } LightUBO;
+typedef enum LightType {
+    LIGHT_TYPE_POINT,
+    LIGHT_TYPE_DIRECTIONAL,
+} LightType;
+typedef struct Light {
+    LightType type;
+    void* data;
+} Light;
+typedef struct SceneLight {
+    int pointLightCount, directionalLightCount;
+    HashMap* lightToEntity;
+} SceneLight;
 
 typedef struct Scene {
     Camera camera;
-    FrameUBO frameUBO;
-    LightUBO lightUBO;
+    SceneLight light;
     HashMap* entities; // TODO: make thread safe
     PhysicsEngine* physicsEngine;
 } Scene;
-
 typedef struct Entity {
     uint64_t id;
     Scene* scene;
@@ -159,6 +169,7 @@ typedef struct Entity {
     AtomicMatrix modelMatrix;
     PhysicsBody* physicsBody;
     Collider collider;
+    bool isLightSource;
     bool isHidden;
     int generation;
 } Entity;
