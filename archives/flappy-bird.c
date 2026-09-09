@@ -100,7 +100,18 @@ int main() {
     entityCreatePhysicsBody(birdEntity);
     physicsBodyGravitySet(birdEntity->physicsBody, 5);
 
-    sceneAddDirectionalLight(scene)->ambient = (vec4){{1, 1, 1, 1}};
+    Model* lightSphare = assetGenerateUVSphere(8, 8, 1, v4(1, 1, 1, 1));
+    Light* pointLight = sceneCreatePointLight(scene, lightSphare, (PointLight){
+        .ambient = {{.1, .1, .1}},
+        //.ambient = {{1, 1, 1}},
+        .position = {{5, 0, 0}},
+        .diffuse = {{1, 1, 1}},
+        .linear = 0.007,
+        .quadratic = 0.00098
+    });
+    Entity* pointLightEntity = scenePointLightGetEntity(scene, pointLight);
+    pointLightEntity->transform.scale = v3_all(0.1);
+
     sceneCameraSetPosition(scene, (vec3){{0, 0, 7}});
     rendererSetScene(scene);
 
