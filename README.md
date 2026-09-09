@@ -3,10 +3,11 @@ Yet Another Nameless Game Engine with no actual goal.
 
 # Prerequisites
 ## Linux
-1. **gcc**, **make**, **libxkbcommon**, **VulkanSDK**, **wayland-client**(optional)
-2. Download and place **Vulkan**, **GLFW** library into **libs** folder or install using package manager
+1. gcc, make, libxkbcommon
+2. vulkan-sdk for debug build
 ## Windows
-1. **gcc**, **make**
+1. gcc, make
+2. vulkan-sdk for debug build
 
 # Building & Running
 ```
@@ -14,7 +15,7 @@ $ make
 $ make run
 ```
 
-## Flappy Bird
+## Engine Applications
 1. [flappybird-windows-build.zip](<./assets/demo/flappybird-windows-build.zip>) (1.1MB)
 
 | ![demo1](./assets/demo/demo1.gif) | ![This is an alt text.](./assets/demo/demo2.gif) |
