@@ -53,7 +53,6 @@ typedef struct EntityData {
 typedef struct PushConstant0 {
     mat4 model;
     mat4 node;
-    EntityData entityData;
 } PushConstant0;
 
 typedef struct PipelineState {

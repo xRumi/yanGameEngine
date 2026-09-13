@@ -373,6 +373,98 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
                 darray_destroy(pushConstants);
                 break;
             }
+            
+            case PIPELINE_TYPE_UNLIT: {
+                // create unlit pipeline
+                PipelineState* pipelineState = &(*pipelineStates)[i];
+
+                VkVertexInputBindingDescription* vertexInputBindings = darray_create_resized(VkVertexInputBindingDescription, 1);
+                vertexInputBindings[0].binding = 0;
+                vertexInputBindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+                vertexInputBindings[0].stride = sizeof(Vertex);
+
+                VkVertexInputAttributeDescription* vertexInputAttributeDescriptions = darray_create_resized(VkVertexInputAttributeDescription, 5);
+                vertexInputAttributeDescriptions[0].binding = 0;
+                vertexInputAttributeDescriptions[0].location = 0;
+                vertexInputAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+                vertexInputAttributeDescriptions[0].offset = offsetof(Vertex, position);
+
+                vertexInputAttributeDescriptions[1].binding = 0;
+                vertexInputAttributeDescriptions[1].location = 1;
+                vertexInputAttributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                vertexInputAttributeDescriptions[1].offset = offsetof(Vertex, color);
+
+                vertexInputAttributeDescriptions[2].binding = 0;
+                vertexInputAttributeDescriptions[2].location = 2;
+                vertexInputAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+                vertexInputAttributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
+                vertexInputAttributeDescriptions[3].binding = 0;
+                vertexInputAttributeDescriptions[3].location = 3;
+                vertexInputAttributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+                vertexInputAttributeDescriptions[3].offset = offsetof(Vertex, normal);
+
+                vertexInputAttributeDescriptions[4].binding = 0;
+                vertexInputAttributeDescriptions[4].location = 4;
+                vertexInputAttributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                vertexInputAttributeDescriptions[4].offset = offsetof(Vertex, tangent);
+
+                VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_resized(VkDescriptorSetLayoutBinding, 2);
+                set_0_layoutBindings[0].binding = 0;
+                set_0_layoutBindings[0].descriptorCount = 1;
+                set_0_layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+                set_0_layoutBindings[1].binding = 1;
+                set_0_layoutBindings[1].descriptorCount = 1;
+                set_0_layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                set_0_layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+
+                VkDescriptorSetLayoutCreateInfo set_0_layoutCreateInfo = {};
+                set_0_layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                set_0_layoutCreateInfo.bindingCount = darray_get_length(set_0_layoutBindings);
+                set_0_layoutCreateInfo.pBindings = set_0_layoutBindings;
+                VkDescriptorSetLayout set_0_layout;
+                if (vkCreateDescriptorSetLayout(internalStateRenderer.device, &set_0_layoutCreateInfo, NULL, &set_0_layout) != VK_SUCCESS) {
+                    FATAL("Failed to create descriptor set layout");
+                }
+
+                pipelineState->descriptorSetLayouts = darray_create(VkDescriptorSetLayout);
+                darray_push(pipelineState->descriptorSetLayouts, set_0_layout);
+
+                PipelineOptionPushConstant* pushConstants = darray_create_resized(PipelineOptionPushConstant, 1);
+                pushConstants[0].size = sizeof(PushConstant0);
+                pushConstants[0].flags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+                PipelineOptions options = {
+                    .vertShaderPath = "assets/shaders/spv/wireframe.vert.spv",
+                    .fragShaderPath = "assets/shaders/spv/wireframe.frag.spv",
+                    .vertexBindingDescriptions = vertexInputBindings,
+                    .vertexAttributeDescriptions = vertexInputAttributeDescriptions,
+                    .descriptorSetLayouts = pipelineState->descriptorSetLayouts,
+                    .pushConstants = pushConstants,
+                    .viewport = viewport,
+                    .scissor = scissor,
+                    .cullMode = VK_CULL_MODE_NONE,
+                    .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                    .polygonMode = VK_POLYGON_MODE_FILL,
+                    .depthTestEnable = VK_TRUE,
+                    .blendEnable = VK_FALSE,
+                    .rasterizationSamples = internalStateRenderer.msaaSamples,
+                    .renderPass = internalStateRenderer.renderPass,
+                };
+                createGraphicsPipline(internalStateRenderer.device, options, &pipelineState->pipeline, &pipelineState->pipelineLayout);
+                createPipelineFrameUBO(internalStateRenderer, pipelineState);
+                TRACE("\"UNLIT\" graphics pipeline created");
+
+                darray_destroy(vertexInputBindings);
+                darray_destroy(vertexInputAttributeDescriptions);
+                darray_destroy(set_0_layoutBindings);
+                darray_destroy(pushConstants);
+                break;
+            }
 
             case PIPELINE_TYPE_UI: {
                 // create ui pipeline

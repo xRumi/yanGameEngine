@@ -42,7 +42,6 @@ void sceneEntityApplyTransform(Scene* scene) {
 Light* sceneCreatePointLight(Scene* scene, Model* lightModel, PointLight pointLight) {
     if (scene->light.pointLightCount >= POINT_LIGHT_MAX_COUNT) return NULL;
     Entity* lightEntity = sceneCreateEntity(scene, lightModel);
-    lightEntity->isLightSource = true;
     lightEntity->transform.translation = vec3_from_vec4(pointLight.position);
     Light* light = memalloc(sizeof(Light), MEMORY_TAG_ASSET_MANAGER);
     light->type = LIGHT_TYPE_POINT;

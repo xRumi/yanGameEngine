@@ -455,7 +455,7 @@ void createDescriptorPool() {
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = (4) * MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
+    poolSizes[1].descriptorCount = 100;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[2].descriptorCount = (4) * MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_MAX;
 
@@ -668,6 +668,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
                         break;
                     }
+                    case PIPELINE_TYPE_UNLIT:
                     case PIPELINE_TYPE_WIREFRAME:
                     case PIPELINE_TYPE_UI:
                     case PIPELINE_TYPE_MAX: break;
@@ -680,8 +681,6 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                 pushConstant0.node = atomicMatrixGetMatrix(&nodeAnimation->matrix);
             } else pushConstant0.node = node->matrix;
             
-            pushConstant0.entityData.isLightSource = entity->isLightSource;
-
             vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushConstant0), &pushConstant0);
 
             MeshRendererState* meshRendererState = mesh->meshRendererStateRef;

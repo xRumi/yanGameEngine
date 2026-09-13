@@ -181,3 +181,11 @@ Model* assetGenerateUVSphere(int slices, int stacks, float radius, vec4 color) {
 
     return model;
 }
+
+void modelMakeUnlit(Model* model) {
+    Material* material;
+    hashmap_foreach(model->materials, material) {
+        if (material->pipelineType == PIPELINE_TYPE_DEFAULT)
+            material->pipelineType = PIPELINE_TYPE_UNLIT;
+    }
+}

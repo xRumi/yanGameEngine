@@ -10,6 +10,8 @@ Model* assetGenerateUVSphere(int slices, int stacks, float radius, vec4 color);
 Model* assetGenerateTriangle(vec3 a, vec3 b, vec3 c);
 Model* assetGenerateRectangle(vec3 a, vec3 b, vec3 c, vec3 d, const char* baseColorPath);
 
+void modelMakeUnlit(Model* model);
+
 Image* imageLoadFromPath(const char* path);
 void updateModelColliderHalfDimensions(Model* model);
 void updateMeshColliderHalfDimensions(Mesh* mesh);

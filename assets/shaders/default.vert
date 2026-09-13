@@ -22,10 +22,11 @@ layout (push_constant) uniform constant {
 } PushConstant0;
 
 void main() {
-    gl_Position = ubo.projection * ubo.view * PushConstant0.model * PushConstant0.node * vec4(inPosition, 1.0);
+    mat4 model = PushConstant0.model * PushConstant0.node;
+    gl_Position = ubo.projection * ubo.view * model * vec4(inPosition, 1.0);
     fragPosition = vec3(PushConstant0.model * vec4(inPosition, 1.0));
     fragColor = inColor;
     fragTexCoord = inTexCoord;
-    mat4 normalMatrix = transpose(inverse(PushConstant0.model));
+    mat4 normalMatrix = transpose(inverse(model));
     fragNormal = vec3(normalMatrix * vec4(inNormal, 1.0));
 }
