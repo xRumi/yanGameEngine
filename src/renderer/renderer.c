@@ -508,10 +508,12 @@ void updateFrameUBO(double deltaTime) {
 }
 
 void rendererLoadMesh(Mesh* mesh) {
+    if (!mesh) return;
     MeshRendererState* meshRendererState = memalloc(sizeof(MeshRendererState), MEMORY_TAG_RENDERER);
     createVertexBuffer(internalStateRenderer, mesh->vertices, &meshRendererState->vertexBuffer, &meshRendererState->vertexBufferMemory);
     createIndexBuffer(internalStateRenderer, mesh->indices, &meshRendererState->indexBuffer, &meshRendererState->indexBufferMemory);
     mesh->meshRendererStateRef = meshRendererState;
+    rendererLoadMesh(mesh->next);
 }
 void rendererLoadImage(Image* image) {
     ImageRendererState* imageRendererState = memalloc(sizeof(ImageRendererState), MEMORY_TAG_RENDERER);
@@ -585,11 +587,11 @@ void rendererLoadModel(Model* model) {
     Material* material;
     hashmap_foreach(model->materials, material) {
         rendererLoadMaterial(material);
-        int meshCount = darray_get_length(model->meshes);
-        for (int i = 0; i < meshCount; i++) {
-            Mesh* mesh = &model->meshes[i];
-            rendererLoadMesh(mesh);
-        }
+    }
+    int meshCount = darray_get_length(model->meshes);
+    for (int i = 0; i < meshCount; i++) {
+        Mesh* mesh = &model->meshes[i];
+        rendererLoadMesh(mesh);
     }
     model->isRendererReady = true;
     TRACE(ANSI_STYLE_BOLD "Model \"%s\" loaded", model->name);
@@ -647,50 +649,53 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
         Node* node;
         hashmap_foreach(model->nodes, node) {
             Mesh* mesh = node->mesh;
-            if (!mesh) continue;
+            while (mesh) {
 
-            Material* material = mesh->material;
+                Material* material = mesh->material;
 
-            enum PipelineType currentPipelineType = material->pipelineType;
-            if (internalStateRenderer.useWireframe) currentPipelineType = PIPELINE_TYPE_WIREFRAME;
-            PipelineState pipelineState = internalStateRenderer.pipelineStates[currentPipelineType];
+                enum PipelineType currentPipelineType = material->pipelineType;
+                if (internalStateRenderer.useWireframe) currentPipelineType = PIPELINE_TYPE_WIREFRAME;
+                PipelineState pipelineState = internalStateRenderer.pipelineStates[currentPipelineType];
 
-            if (previousPipelineType != currentPipelineType) {
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
-                previousPipelineType = currentPipelineType;
-            }
-
-            MaterialRendererState* materialRendererState = (MaterialRendererState*)material->materialRendererStateRef;
-            if (previousMaterialRendererState != materialRendererState) {
-                switch (currentPipelineType) {
-                    case PIPELINE_TYPE_DEFAULT: {
-                        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
-                        break;
-                    }
-                    case PIPELINE_TYPE_UNLIT:
-                    case PIPELINE_TYPE_WIREFRAME:
-                    case PIPELINE_TYPE_UI:
-                    case PIPELINE_TYPE_MAX: break;
+                if (previousPipelineType != currentPipelineType) {
+                    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
+                    previousPipelineType = currentPipelineType;
                 }
-                previousMaterialRendererState = materialRendererState;
-            }
-            if (node->isAnimated) {
-                NodeAnimation* nodeAnimation = (NodeAnimation*)hashmap_get(entity->nodeAnimations, (uint64_t)node);
-                if (!nodeAnimation) ERROR("Node Animation not found");
-                pushConstant0.node = atomicMatrixGetMatrix(&nodeAnimation->matrix);
-            } else pushConstant0.node = node->matrix;
-            
-            vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushConstant0), &pushConstant0);
 
-            MeshRendererState* meshRendererState = mesh->meshRendererStateRef;
-            VkDeviceSize offsets[] = {0};
-            if (previousMeshRendererState != meshRendererState) {
-                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState->vertexBuffer, offsets);
-                vkCmdBindIndexBuffer(commandBuffer, meshRendererState->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-                previousMeshRendererState = meshRendererState;
+                MaterialRendererState* materialRendererState = (MaterialRendererState*)material->materialRendererStateRef;
+                if (previousMaterialRendererState != materialRendererState) {
+                    switch (currentPipelineType) {
+                        case PIPELINE_TYPE_DEFAULT: {
+                            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 1, 1, &materialRendererState->descriptorSet, 0, NULL);
+                            break;
+                        }
+                        case PIPELINE_TYPE_UNLIT:
+                        case PIPELINE_TYPE_WIREFRAME:
+                        case PIPELINE_TYPE_UI:
+                        case PIPELINE_TYPE_MAX: break;
+                    }
+                    previousMaterialRendererState = materialRendererState;
+                }
+                if (node->isAnimated) {
+                    NodeAnimation* nodeAnimation = (NodeAnimation*)hashmap_get(entity->nodeAnimations, (uint64_t)node);
+                    if (!nodeAnimation) ERROR("Node Animation not found");
+                    pushConstant0.node = mat4_mul(node->matrix, atomicMatrixGetMatrix(&nodeAnimation->matrix));
+                } else pushConstant0.node = node->matrix;
+                
+                vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushConstant0), &pushConstant0);
+
+                MeshRendererState* meshRendererState = mesh->meshRendererStateRef;
+                VkDeviceSize offsets[] = {0};
+                if (previousMeshRendererState != meshRendererState) {
+                    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &meshRendererState->vertexBuffer, offsets);
+                    vkCmdBindIndexBuffer(commandBuffer, meshRendererState->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                    previousMeshRendererState = meshRendererState;
+                }
+                vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh->indices), 1, 0, 0, 0);
+
+                mesh = mesh->next;
             }
-            vkCmdDrawIndexed(commandBuffer, darray_get_length(mesh->indices), 1, 0, 0, 0);
         }
     }
 

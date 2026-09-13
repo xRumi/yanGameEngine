@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 
 #define DEBUG_vec3(v) DEBUG("(%.2f, %.2f, %.2f)", v.x, v.y, v.z)
+#define DEBUG_vec4(v) DEBUG("(%.2f, %.2f, %.2f, %.2f)", v.x, v.y, v.z, v.w);
 
 #define v3(a, b, c) (vec3){{a, b, c}}
 #define v3_all(a) (vec3){{a, a, a}}

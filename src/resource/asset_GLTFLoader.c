@@ -43,12 +43,12 @@ Vertex* loadGLTFMeshVertices(const cgltf_attribute* attributes, uint32_t attribu
             .normal = {{0, 0, 1}},
             .tangent = {{1, 0, 0, 1}},
         };
-        vertices[i].color = (vec4){{
-            (rand() % 256) / 256.0,
-            (rand() % 256) / 256.0,
-            (rand() % 256) / 256.0,
-            (rand() % 256) / 256.0,
-        }};
+        // vertices[i].color = (vec4){{
+        //     (rand() % 256) / 256.0,
+        //     (rand() % 256) / 256.0,
+        //     (rand() % 256) / 256.0,
+        //     (rand() % 256) / 256.0,
+        // }};
     }
     for (int i = 0; i < attributeCount; i++) {
         cgltf_attribute_type attributeType = attributes[i].type;
@@ -279,7 +279,6 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
     stringBuilderConcat(&traceStr, "Material: %d", gltf_data->materials_count);
 
     for (int i = 0; i < gltf_data->meshes_count; i++) {
-        stringBuilderConcat(&traceStr, "\nMesh %d/%d:\n", i + 1, gltf_data->meshes_count);
 
         int primitives_count = gltf_data->meshes[i].primitives_count;
         for (int j = 0; j < primitives_count; j++) {
@@ -294,6 +293,7 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
 
                     Mesh mesh = {};
 
+                    stringBuilderConcat(&traceStr, "\nSub-Mesh %d/%d:\n", i + 1, gltf_data->meshes_count);
                     stringBuilderConcat(&traceStr, "Indices    = %d\n", primitive->indices->count);
                     mesh.indices = loadGLTFMeshIndices(primitive->indices);
                     if (mesh.indices == NULL) FATAL("[%s] Failed to load indices", gltf_path);
@@ -304,14 +304,12 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
                     updateMeshColliderHalfDimensionsIfProvided(&mesh, primitive->attributes, primitive->attributes_count);
 
                     mesh.material = (Material*)hashmap_get(model->materials, (uint64_t)primitive->material);
-                    model->meshes[i] = mesh;
-
-                    for (int k = 0; k < gltf_data->nodes_count; k++) {
-                        if (gltf_data->nodes[k].mesh == &gltf_data->meshes[i]) {
-                            Node* node = (Node*)hashmap_get(model->nodes, (uint64_t)&gltf_data->nodes[k]);
-                            node->mesh = &model->meshes[i];
-                        }
-                    }
+                    if (model->meshes[i].vertices) {
+                        Mesh* tail = &model->meshes[i];
+                        while (tail->next) tail = tail->next;
+                        tail->next = memalloc(sizeof(Mesh), MEMORY_TAG_ASSET_MANAGER);
+                        memcpy(tail->next, &mesh, sizeof(Mesh));
+                    } else model->meshes[i] = mesh;
 
                     stringBuilderConcat(&traceStr, "Attributes = ");
                     for (int i = 0; i < primitive->attributes_count; i++)
@@ -322,6 +320,13 @@ Model* assetLoadGLTF(const char* gltf_dir, const char* gltf_file) {
                 default: {
                     WARN("[%s] Unknown primitive provided", gltf_path);
                 }
+            }
+        }
+
+        for (int k = 0; k < gltf_data->nodes_count; k++) {
+            if (gltf_data->nodes[k].mesh == &gltf_data->meshes[i]) {
+                Node* node = (Node*)hashmap_get(model->nodes, (uint64_t)&gltf_data->nodes[k]);
+                node->mesh = &model->meshes[i];
             }
         }
     }

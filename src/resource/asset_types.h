@@ -63,6 +63,7 @@ typedef struct Mesh {
     Vertex* vertices;
     uint32_t* indices;
     Material* material;
+    struct Mesh* next;
     Collider collider;
     void* meshRendererStateRef;
 } Mesh;
