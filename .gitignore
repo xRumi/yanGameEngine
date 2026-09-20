@@ -4,3 +4,8 @@ compile_commands.json
 .cache
 *.code-workspace
 *.directory
+
+includes/*
+!includes/defaults.zip
+libs/*
+!libs/defaults.zip
