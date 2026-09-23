@@ -657,9 +657,14 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                 if (internalStateRenderer.useWireframe) currentPipelineType = PIPELINE_TYPE_WIREFRAME;
                 PipelineState pipelineState = internalStateRenderer.pipelineStates[currentPipelineType];
 
+                if (currentPipelineType != PIPELINE_TYPE_DEFAULT) break;
+                PipelineInternalState* pipelineInternalState = pipelineState.internalState;
+                SSBO_1* sSSB_1 = pipelineInternalState->SSBOMapped[0];
+
                 if (previousPipelineType != currentPipelineType) {
                     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipeline);
                     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 0, 1, &pipelineState.descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineState.pipelineLayout, 2, 1, &pipelineInternalState->descriptorSets[internalStateRenderer.currentFrame], 0, NULL);
                     previousPipelineType = currentPipelineType;
                 }
 
@@ -682,7 +687,19 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                     if (!nodeAnimation) ERROR("Node Animation not found");
                     pushConstant0.node = mat4_mul(node->matrix, atomicMatrixGetMatrix(&nodeAnimation->matrix));
                 } else pushConstant0.node = node->matrix;
-                
+
+                sSSB_1->node = pushConstant0.node;
+
+                Node** jointRef;
+                darray_foreach(node->joints, jointRef) {
+                    Node* joint = *jointRef;
+                    sSSB_1->inverseBind[__i] = joint->inverseBindMatrix;
+
+                    if (joint->isAnimated && 0) {
+                        NodeAnimation* jointAnimation = (NodeAnimation*)hashmap_get(entity->nodeAnimations, (uint64_t)joint);
+                        sSSB_1->joints[__i] = atomicMatrixGetMatrix(&jointAnimation->matrix);
+                    } else sSSB_1->joints[__i] = joint->matrix;
+                }
                 vkCmdPushConstants(commandBuffer, pipelineState.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushConstant0), &pushConstant0);
 
                 MeshRendererState* meshRendererState = mesh->meshRendererStateRef;
@@ -702,9 +719,9 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
     {
         // handle UI rendering
         PipelineState uiPipelineState = internalStateRenderer.pipelineStates[PIPELINE_TYPE_UI];
-        UIPipelineInternalState* uiPipelineInternalState = uiPipelineState.internalState;
+        PipelineInternalState* uiPipelineInternalState = uiPipelineState.internalState;
 
-        UISSBO_0* uISSBO_0 = uiPipelineInternalState->SSBOMapped[0];
+        SSBO_0* uISSBO_0 = uiPipelineInternalState->SSBOMapped[0];
         int characterInstanceIndex = 0;
 
         UIText* uiText;

@@ -50,7 +50,7 @@ int main() {
     double physicsDt = 1 / 60.0;
     int physicsMaxSteps = 5;
 
-    Model* model = assetLoadGLTF("./assets/world/models/CesiumMilkTruck", "CesiumMilkTruck.gltf");
+    Model* model = assetLoadGLTF("./assets/world/models/RiggedSimple", "RiggedSimple.gltf");
     Model* sphare = assetGenerateUVSphere(8, 8, 1, v4(1, 1, 1, 1));
     modelMakeUnlit(sphare);
 

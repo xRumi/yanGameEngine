@@ -10,7 +10,6 @@ layout (set = 0, binding = 0) uniform UniformBufferObject {
     mat4 projection;
 } ubo;
 
-#define MAX_GLYPHS 65536
 struct UICharacterInstance {
     vec3 position;
     uint color;
@@ -18,9 +17,9 @@ struct UICharacterInstance {
     uint character;
     uint reserve[1];
 };
-layout (std430, set = 1, binding = 0) readonly buffer SSBO_0 {
-    UICharacterInstance UICharacterInstances[MAX_GLYPHS];
-} UISSBO_0;
+layout (std430, set = 1, binding = 0) readonly buffer SSBO0 {
+    UICharacterInstance UICharacterInstances[];
+} SSBO_0;
 
 layout (push_constant) uniform constant {
     int uiComponentType;
@@ -30,7 +29,7 @@ void main() {
     if (PushConstant.uiComponentType == 0) {
         // UIComponentType = UI_TEXT
 
-        UICharacterInstance uICharacterInstance = UISSBO_0.UICharacterInstances[gl_InstanceIndex];
+        UICharacterInstance uICharacterInstance = SSBO_0.UICharacterInstances[gl_InstanceIndex];
 
         vec2 corners[4] = vec2[](
             vec2(uICharacterInstance.position.x, uICharacterInstance.position.y),

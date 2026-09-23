@@ -12,6 +12,8 @@ typedef struct Vertex {
     vec2 texCoord;
     vec3 normal;
     vec4 tangent;
+    vec4 weights;
+    vec4 joints;
 } Vertex;
 
 // typedef struct Vertex {
@@ -85,9 +87,12 @@ typedef struct NodeAnimationSampler {
 } NodeAnimationSampler;
 
 typedef struct Node {
-    mat4 matrix;
     Mesh* mesh;
+    mat4 matrix;
+    mat4 inverseBindMatrix;
+    struct Node** joints;
     struct Node** child;
+    struct Node* parent;
     bool isAnimated;
     NodeAnimationSampler animationSampler;
 } Node;

@@ -79,21 +79,21 @@ typedef struct UICharacterInstance {
     uint32_t character;
     uint32_t reserve[1];
 } UICharacterInstance;
-typedef struct UISSBO_0 {
+typedef struct SSBO_0 {
     UICharacterInstance uiCharacterInstances[MAX_UI_CHARACTERS];
-} UISSBO_0;
+} SSBO_0;
 typedef enum UIComponentType {
     UI_TEXT,
 } UIComponentType;
 typedef struct UIPushConstant {
     UIComponentType uiComponentType;
 } UIPushConstant;
-typedef struct UIPipelineInternalState {
+typedef struct PipelineInternalState {
     VkDescriptorSet* descriptorSets;
     VkBuffer* SSBOBuffer;
     VkDeviceMemory* SSBOMemory;
     void** SSBOMapped;
-} UIPipelineInternalState;
+} PipelineInternalState;
 typedef struct UIText {
     vec3 position;
     float scale;
@@ -107,6 +107,12 @@ typedef struct UIState {
     uint32_t prevWidth, prevHeight;
     HashMap* texts;
 } UIState;
+
+typedef struct SSBO_1 {
+    mat4 node;
+    mat4 inverseBind[1024];
+    mat4 joints[1024];
+} SSBO_1;
 
 typedef struct RendererState {
     VkInstance instance;
@@ -208,3 +214,4 @@ void createGraphicsPipline(VkDevice device, PipelineOptions options, VkPipeline*
 void createCommonPipelines(RendererState internalStateRenderer, PipelineState** pipelineStates);
 void createPipelineFrameUBO(RendererState internalStateRenderer, PipelineState* pipeline);
 void createUIPipelineObjects(RendererState internalStateRenderer, PipelineState* pipelineState);
+void createDefaultPipelineObjects(RendererState internalStateRenderer, PipelineState* pipelineState);

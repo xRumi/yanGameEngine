@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define TO_RADIANS(degree) degree * M_PI / 180.0
 #define TO_DEGREE(rad) rad * 180.0 / M_PI
 
@@ -23,6 +25,12 @@ typedef union vec4 {
         float x, y, z, w;
     };
 } vec4;
+typedef union uvec4 {
+    float ele[4];
+    struct {
+        uint32_t x, y, z, w;
+    };
+} uvec4;
 
 typedef union mat4 {
     float ele[4 * 4];

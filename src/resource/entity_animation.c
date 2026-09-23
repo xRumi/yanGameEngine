@@ -2,7 +2,7 @@
 
 void updateNodeAnimationGeneration(Entity* entity, NodeAnimation* nodeAnimation) {
     if (nodeAnimation->generation < entity->generation) {
-        nodeAnimation->propagration = mat4_identity();
+        nodeAnimation->propagration = nodeAnimation->node->matrix;
         nodeAnimation->generation = entity->generation;
     }
 }
@@ -46,6 +46,15 @@ void entityNodeAnimationApply(Entity* entity) {
             } else if (animationTime > inputs[i]) {
                 transform.rotation = node->animationSampler.rotation.output[darray_get_length(inputs) - 1];
             }
+        }
+        if (node->animationSampler.scale.input) {
+            float* inputs = node->animationSampler.scale.input;
+            double animationTime = fmod(entity->timeManager.elapsedTime, node->animationSampler.animationTime);
+            int i = 1;
+            for (; i < darray_get_length(inputs); i++)
+                if (animationTime <= inputs[i]) break;
+            vec3 start = node->animationSampler.scale.output[i - 1], end = node->animationSampler.scale.output[i];
+            transform.scale = vec3_lerp(start, end, (animationTime - node->animationSampler.scale.input[i - 1]) / (node->animationSampler.scale.input[i] - node->animationSampler.scale.input[i - 1]));
         }
         nodeAnimation->propagration = mat4_mul(nodeAnimation->propagration, mat4FromTransform(transform));
         propagateNodeTransform(entity, nodeAnimation);

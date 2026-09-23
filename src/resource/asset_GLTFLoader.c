@@ -43,12 +43,12 @@ Vertex* loadGLTFMeshVertices(const cgltf_attribute* attributes, uint32_t attribu
             .normal = {{0, 0, 1}},
             .tangent = {{1, 0, 0, 1}},
         };
-        // vertices[i].color = (vec4){{
-        //     (rand() % 256) / 256.0,
-        //     (rand() % 256) / 256.0,
-        //     (rand() % 256) / 256.0,
-        //     (rand() % 256) / 256.0,
-        // }};
+        vertices[i].color = (vec4){{
+            (rand() % 256) / 256.0,
+            (rand() % 256) / 256.0,
+            (rand() % 256) / 256.0,
+            (rand() % 256) / 256.0,
+        }};
     }
     for (int i = 0; i < attributeCount; i++) {
         cgltf_attribute_type attributeType = attributes[i].type;
@@ -92,6 +92,24 @@ Vertex* loadGLTFMeshVertices(const cgltf_attribute* attributes, uint32_t attribu
                     vec4 tangent = {{0, 0, 0, 1}};
                     memcpy(&tangent, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
                     vertices[j].tangent = tangent;
+                    break;
+                }
+                case cgltf_attribute_type_joints: {
+                    vec4 joints = {};
+                    if (accessor->component_type == cgltf_component_type_r_16u) {
+                        uint16_t* tempJoints = (uint16_t*)(data + offset + stride * j);
+                        joints.ele[0] = tempJoints[0];
+                        joints.ele[1] = tempJoints[1];
+                        joints.ele[2] = tempJoints[2];
+                        joints.ele[3] = tempJoints[3];
+                    } else memcpy(&joints, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
+                    vertices[j].joints = joints;
+                    break;
+                }
+                case cgltf_attribute_type_weights: {
+                    vec4 weights = {{0, 0, 0, 0}};
+                    memcpy(&weights, data + offset + stride * j, cgltf_calc_size(accessor->type, accessor->component_type));
+                    vertices[j].weights = weights;
                     break;
                 }
                 default: {
@@ -143,7 +161,18 @@ HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
         Node* node = (Node*)hashmap_get(nodes, (uint64_t)&gltf_data->nodes[i]);
         for (int j = 0; j < gltf_data->nodes[i].children_count; j++) {
             Node* child = (Node*)hashmap_get(nodes, (uint64_t)gltf_data->nodes[i].children[j]);
+            child->parent = node;
             node->child[j] = child;
+        }
+        if (gltf_data->nodes[i].skin) {
+            int jointCount = gltf_data->nodes[i].skin->joints_count;
+            node->joints = darray_create_resized_memoryTag(Node*, jointCount, MEMORY_TAG_ASSET_MANAGER);
+            for (int j = 0; j < jointCount; j++) {
+                Node* joint = (Node*)hashmap_get(nodes, (uint64_t)gltf_data->nodes[i].skin->joints[j]);
+                cgltf_accessor_read_float(gltf_data->nodes[i].skin->inverse_bind_matrices, j, joint->inverseBindMatrix.ele, 16);
+                node->joints[j] = joint;
+            }
+
         }
     }
     for (int i = 0; i < gltf_data->animations_count; i++) {
@@ -188,7 +217,20 @@ HashMap* loadGLTFNodes(cgltf_data* gltf_data) {
                     }
                     break;
                 }
-                case cgltf_animation_path_type_scale:
+                case cgltf_animation_path_type_scale: {
+                    node->animationSampler.scale.input = darray_create_resized_memoryTag(float, sampler->input->count, MEMORY_TAG_ASSET_MANAGER);
+                    node->animationSampler.scale.output = darray_create_resized_memoryTag(vec3, sampler->output->count, MEMORY_TAG_ASSET_MANAGER);
+                    for (int k = 0; k < sampler->input->count; k++) {
+                        float time = 0;
+                        vec3 scale = {};
+                        memcpy(&time, sampler->input->buffer_view->buffer->data + sampler->input->offset + sampler->input->buffer_view->offset + sampler->input->stride * k, sizeof(float));
+                        memcpy(&scale, sampler->output->buffer_view->buffer->data + sampler->output->offset + sampler->output->buffer_view->offset + sampler->output->stride * k, sizeof(vec3));
+                        node->animationSampler.scale.input[k] = time;
+                        node->animationSampler.scale.output[k] = scale;
+                        node->animationSampler.animationTime = MAX(node->animationSampler.animationTime, time);
+                    }
+                    break;
+                }
                 case cgltf_animation_path_type_weights:
                 case cgltf_animation_path_type_max_enum:
                 default: WARN("Unknown animation path type");
