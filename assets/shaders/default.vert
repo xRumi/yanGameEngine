@@ -45,7 +45,7 @@ void main() {
         inWeights.w * SSBO_1.joints[int(inJoints.w)];
 
     mat4 model = PushConstant0.model;
-    gl_Position = ubo.projection * ubo.view * model * boneSpace * rest;
+    gl_Position = ubo.projection * ubo.view * model * skinned * boneSpace * rest;
     fragPosition = vec3(PushConstant0.model * vec4(inPosition, 1.0));
     fragColor = inColor;
     fragTexCoord = inTexCoord;

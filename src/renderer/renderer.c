@@ -695,7 +695,7 @@ void recordCommandBuffer(const VkCommandBuffer commandBuffer, uint32_t imageInde
                     Node* joint = *jointRef;
                     sSSB_1->inverseBind[__i] = joint->inverseBindMatrix;
 
-                    if (joint->isAnimated && 0) {
+                    if (joint->isAnimated) {
                         NodeAnimation* jointAnimation = (NodeAnimation*)hashmap_get(entity->nodeAnimations, (uint64_t)joint);
                         sSSB_1->joints[__i] = atomicMatrixGetMatrix(&jointAnimation->matrix);
                     } else sSSB_1->joints[__i] = joint->matrix;
