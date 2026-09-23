@@ -207,7 +207,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
 
                 vertexInputAttributeDescriptions[6].binding = 0;
                 vertexInputAttributeDescriptions[6].location = 6;
-                vertexInputAttributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_UINT;
+                vertexInputAttributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SFLOAT;
                 vertexInputAttributeDescriptions[6].offset = offsetof(Vertex, joints);
 
                 VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_resized(VkDescriptorSetLayoutBinding, 2);
@@ -351,7 +351,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
 
                 vertexInputAttributeDescriptions[6].binding = 0;
                 vertexInputAttributeDescriptions[6].location = 6;
-                vertexInputAttributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_UINT;
+                vertexInputAttributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SFLOAT;
                 vertexInputAttributeDescriptions[6].offset = offsetof(Vertex, joints);
 
                 VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_resized(VkDescriptorSetLayoutBinding, 2);
@@ -453,7 +453,7 @@ void createCommonPipelines(RendererState internalStateRenderer, PipelineState** 
 
                 vertexInputAttributeDescriptions[6].binding = 0;
                 vertexInputAttributeDescriptions[6].location = 6;
-                vertexInputAttributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_UINT;
+                vertexInputAttributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SFLOAT;
                 vertexInputAttributeDescriptions[6].offset = offsetof(Vertex, joints);
 
                 VkDescriptorSetLayoutBinding* set_0_layoutBindings = darray_create_resized(VkDescriptorSetLayoutBinding, 2);
